@@ -1,0 +1,432 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* shadcn/ui 风格 HSL 变量 - 浅色主题 */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.625rem;
+
+    /* highlight.js 主题色（浅色） */
+    --hljs-bg: 240 5% 96%;
+    --hljs-fg: 240 10% 10%;
+    --hljs-comment: 240 5% 45%;
+    --hljs-keyword: 262 60% 50%;
+    --hljs-string: 142 60% 35%;
+    --hljs-number: 14 80% 50%;
+    --hljs-function: 199 80% 40%;
+    --hljs-variable: 240 10% 20%;
+    --hljs-title: 199 80% 40%;
+    --hljs-attr: 199 80% 40%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+
+    /* highlight.js 主题色（深色） */
+    --hljs-bg: 240 6% 10%;
+    --hljs-fg: 0 0% 92%;
+    --hljs-comment: 240 5% 60%;
+    --hljs-keyword: 280 80% 75%;
+    --hljs-string: 142 50% 65%;
+    --hljs-number: 14 80% 70%;
+    --hljs-function: 199 80% 70%;
+    --hljs-variable: 0 0% 88%;
+    --hljs-title: 199 80% 70%;
+    --hljs-attr: 199 80% 70%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, 'PingFang SC',
+      'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+/* ===========================
+   assistant-ui 滚动条
+   =========================== */
+.aui-thread-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+.aui-thread-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+.aui-thread-viewport::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+.aui-thread-viewport::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* ===========================
+   Markdown 渲染
+   =========================== */
+.aui-md {
+  word-wrap: break-word;
+  color: hsl(var(--foreground));
+}
+.aui-md .aui-md-body > *:first-child {
+  margin-top: 0;
+}
+.aui-md .aui-md-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.aui-md-body p {
+  margin: 0.5em 0;
+  line-height: 1.7;
+}
+
+.aui-md-body h1,
+.aui-md-body h2,
+.aui-md-body h3,
+.aui-md-body h4,
+.aui-md-body h5,
+.aui-md-body h6 {
+  margin: 1.2em 0 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.aui-md-body h1 { font-size: 1.5em; }
+.aui-md-body h2 { font-size: 1.3em; }
+.aui-md-body h3 { font-size: 1.15em; }
+.aui-md-body h4 { font-size: 1em; }
+
+.aui-md-body ul,
+.aui-md-body ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+.aui-md-body ul { list-style: disc; }
+.aui-md-body ol { list-style: decimal; }
+.aui-md-body li {
+  margin: 0.2em 0;
+  line-height: 1.7;
+}
+.aui-md-body li > p {
+  margin: 0;
+}
+
+.aui-md-body blockquote {
+  margin: 0.6em 0;
+  padding: 0.2em 0.8em;
+  border-left: 3px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.4);
+  border-radius: 0 4px 4px 0;
+}
+
+.aui-md-body .md-link {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: hsl(var(--primary) / 0.4);
+  transition: text-decoration-color 0.15s;
+}
+.aui-md-body .md-link:hover {
+  text-decoration-color: hsl(var(--primary));
+}
+
+.aui-md-body table {
+  width: 100%;
+  margin: 0.8em 0;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+.aui-md-body th,
+.aui-md-body td {
+  padding: 0.4em 0.7em;
+  border: 1px solid hsl(var(--border));
+  text-align: left;
+}
+.aui-md-body th {
+  background: hsl(var(--muted) / 0.6);
+  font-weight: 600;
+}
+
+.aui-md-body hr {
+  margin: 1.2em 0;
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.aui-md-body :not(pre) > code {
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+    monospace;
+  font-size: 0.875em;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  word-break: break-word;
+}
+
+/* ----- 代码块 ----- */
+.aui-md-body pre.md-code-block {
+  position: relative;
+  margin: 0.8em 0;
+  padding: 0;
+  border-radius: 8px;
+  background: hsl(var(--hljs-bg));
+  border: 1px solid hsl(var(--border));
+  overflow: hidden;
+}
+
+.aui-md-body pre.md-code-block code {
+  display: block;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+  font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+    monospace;
+  font-size: 0.82em;
+  line-height: 1.55;
+  color: hsl(var(--hljs-fg));
+  background: transparent;
+}
+
+.aui-md-body pre.md-code-block::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 6px;
+  right: 38px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-family:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+    monospace;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background) / 0.4);
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.aui-md-body pre.md-code-block .md-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background) / 0.5);
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+.aui-md-body pre.md-code-block:hover .md-copy-btn,
+.aui-md-body pre.md-code-block .md-copy-btn.md-copy-btn--success {
+  opacity: 1;
+}
+.aui-md-body pre.md-code-block .md-copy-btn:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+}
+.aui-md-body pre.md-code-block .md-copy-btn.md-copy-btn--success {
+  color: hsl(142 60% 45%);
+  border-color: hsl(142 60% 45% / 0.4);
+}
+
+/* ----- highlight.js 颜色覆盖（与 shadcn 主题融合） ----- */
+.hljs { color: hsl(var(--hljs-fg)); background: hsl(var(--hljs-bg)); }
+.hljs-comment,
+.hljs-quote { color: hsl(var(--hljs-comment)); font-style: italic; }
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link { color: hsl(var(--hljs-keyword)); font-weight: 500; }
+.hljs-string,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-regexp,
+.hljs-addition { color: hsl(var(--hljs-string)); }
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-meta { color: hsl(var(--hljs-number)); }
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-type,
+.hljs-class .hljs-title { color: hsl(var(--hljs-function)); font-weight: 500; }
+.hljs-title,
+.hljs-function .hljs-title,
+.hljs-title.class_,
+.hljs-title.function_ { color: hsl(var(--hljs-title)); font-weight: 600; }
+.hljs-attribute,
+.hljs-name,
+.hljs-tag { color: hsl(var(--hljs-attr)); }
+.hljs-variable,
+.hljs-template-variable,
+.hljs-params { color: hsl(var(--hljs-variable)); }
+.hljs-deletion { color: hsl(0 80% 60%); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }
+
+/* ===========================
+   动画 & 微交互
+   =========================== */
+
+/* 淡入：消息 / 列表项进入 */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.25s ease-out;
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* 流式打字光标 */
+.aui-md.is-streaming {
+  position: relative;
+}
+
+/* 全局：消息浮起动效（首次进入） */
+[class*="col-start-2"] > * {
+  animation: fade-in-up 0.25s ease-out;
+}
+
+/* Composer 输入区：聚焦时加更明显的边框阴影 */
+.focus-within\:shadow-glow:focus-within {
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.15);
+}
+
+/* 卡片 hover：轻微上浮 */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+}
+
+/* 用户/助手消息气泡：进入时上滑 */
+.aui-thread-viewport > div > div {
+  animation: fade-in-up 0.3s ease-out;
+}
+
+/* 滚动到顶部/底部按钮：柔和阴影 */
+[data-aui-shadow] {
+  box-shadow: 0 4px 16px -4px hsl(var(--foreground) / 0.1), 0 2px 6px -2px hsl(var(--foreground) / 0.06);
+}
+
+/* 平滑过渡：sidebar collapse */
+aside, header, main, [data-anim] {
+  transition: width 0.2s ease, padding 0.2s ease, margin 0.2s ease;
+}
+
+/* Brand logo 微动效 */
+@keyframes sparkle {
+  0%, 100% { transform: rotate(0deg) scale(1); opacity: 1; }
+  50% { transform: rotate(15deg) scale(1.08); opacity: 0.85; }
+}
+.brand-sparkle {
+  animation: sparkle 4s ease-in-out infinite;
+  display: inline-flex;
+}
+
+/* 暗色主题：背景更细腻 */
+.dark body {
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 0%, hsl(var(--primary) / 0.06), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 100%, hsl(220 80% 60% / 0.04), transparent),
+    hsl(var(--background));
+  background-attachment: fixed;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 0%, hsl(220 80% 60% / 0.04), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 100%, hsl(var(--primary) / 0.04), transparent),
+    hsl(var(--background));
+  background-attachment: fixed;
+}
+
+/* 滚动条（全局） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+}
+
+/* 选中文字颜色 */
+::selection {
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--foreground));
+}

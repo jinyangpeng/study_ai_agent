@@ -1,0 +1,64 @@
+{
+  "_comment": "PII（个人身份信息）检测配置。修改后重启服务即可生效。",
+  "_doc": {
+    "fields": {
+      "pii_type": "PII 类型名（用于日志和占位符）",
+      "strategy": "处理策略: block / redact / mask / hash",
+      "detector": "自定义正则（内置类型可省略）",
+      "apply_to_input": "是否处理用户输入",
+      "apply_to_output": "是否处理模型输出",
+      "apply_to_tool_results": "是否处理工具调用结果"
+    },
+    "builtin_pii_types": ["email", "credit_card", "ip", "mac_address", "url"],
+    "strategies": {
+      "block": "抛 PIIDetectionError 异常",
+      "redact": "替换为 [REDACTED_TYPE]",
+      "mask": "部分掩码（如信用卡 ****-****-****-1234）",
+      "hash": "确定性哈希（如 <email_hash:a1b2c3d4>）"
+    }
+  },
+  "keywords": [
+    {
+      "pii_type": "email",
+      "strategy": "redact",
+      "apply_to_input": true,
+      "apply_to_output": true,
+      "apply_to_tool_results": true
+    },
+    {
+      "pii_type": "credit_card",
+      "strategy": "mask",
+      "apply_to_input": true,
+      "apply_to_output": true
+    },
+    {
+      "pii_type": "ip",
+      "strategy": "hash",
+      "apply_to_input": true
+    },
+    {
+      "pii_type": "url",
+      "strategy": "redact",
+      "apply_to_input": true
+    },
+    {
+      "pii_type": "api_key",
+      "detector": "sk-[a-zA-Z0-9]{32}",
+      "strategy": "block",
+      "apply_to_input": true
+    },
+    {
+      "pii_type": "phone_cn",
+      "detector": "1[3-9]\\d{9}",
+      "strategy": "redact",
+      "apply_to_input": true,
+      "apply_to_tool_results": true
+    },
+    {
+      "pii_type": "id_card_cn",
+      "detector": "\\d{17}[\\dXx]",
+      "strategy": "redact",
+      "apply_to_input": true
+    }
+  ]
+}

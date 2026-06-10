@@ -1,0 +1,83 @@
+"""Research skeleton - 资料调研 / 信息整合任务的 Agent。
+
+工具集
+------
+* Web 搜索、知识库、计算、实时信息查询、安全工具
+* **纯只读** - 不挂任何 FILE_TOOLS、SHELL_TOOLS、git 工具，
+  executor 不会修改工作区。
+
+HITL 策略
+---------
+空 dict —— read-only agent 没有副作用，所以不需要任何审批门禁。
+前端可以把它跑成"无中断"模式。
+"""
+# -*- coding: utf-8 -*-
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from src.core.tools import (
+    COMPUTATION_TOOLS,
+    INFO_TOOLS,
+    KNOWLEDGE_TOOLS,
+    SAFETY_TOOLS,
+    SEARCH_TOOLS,
+)
+from src.skills.base_skill import BaseSkill
+
+if TYPE_CHECKING:
+    from langchain_core.tools import BaseTool
+
+
+class ResearchSkill(BaseSkill):
+    """深度研究智能体。"""
+
+    id: str = "research"
+    name: str = "深度研究智能体"
+    description: str = (
+        "面向研究 / 资料整合任务的智能体：搜索、抓取、阅读、引用、综合。"
+        "纯只读，不会修改文件或执行命令。"
+    )
+
+    # ---- prompts ----
+    planner_prompt: str = (
+        "You are a research planner.\n"
+        "Turn the user's question into a research plan. Aim for 3-5 search queries\n"
+        "that cover the topic from different angles (definition, evidence, counterpoint, recent updates).\n"
+        "Output JSON: goal / steps / rationale. No tool calls."
+    )
+
+    executor_prompt: str = (
+        "You are a research executor.\n"
+        "For every claim you make, cite the URL you got it from. Use the Citation schema.\n"
+        "Prefer authoritative sources (official docs, papers, primary news). "
+        "Quote the exact passage you relied on.\n"
+        "When the search returns no relevant result, state that explicitly - do not invent."
+    )
+
+    reviewer_prompt: str = (
+        "You are a research reviewer.\n"
+        "Audit the answer for: (1) unsupported claims, (2) circular citations, "
+        "(3) missing counter-evidence, (4) staleness.\n"
+        "Output JSON with verdict='approve' (publishable) or 'revise' (loop back).\n"
+        "If 'revise', name the specific gap in 'issues'."
+    )
+
+    @property
+    def tools(self) -> list["BaseTool"]:
+        """研究智能体的工具集 —— 搜索、知识、计算、信息、安全。"""
+        return (
+            list(SEARCH_TOOLS)
+            + list(KNOWLEDGE_TOOLS)
+            + list(COMPUTATION_TOOLS)
+            + list(INFO_TOOLS)
+            + list(SAFETY_TOOLS)
+        )
+
+    @property
+    def hitl_rules(self) -> dict[str, dict[str, list[str]]]:
+        """研究智能体 read-only，没有副作用，不需要任何审批门禁。"""
+        return {}
+
+
+__all__ = ["ResearchSkill"]

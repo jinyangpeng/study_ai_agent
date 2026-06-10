@@ -1,0 +1,114 @@
+# ==================== 项目元数据 ====================
+# Python 项目配置（PEP 621 标准）
+#
+# 两个文件的角色分工：
+#   pyproject.toml [project.dependencies] - 直接依赖（24 个），
+#     由开发者手工维护，表达"这个项目直接用了什么"
+#   requirements.txt - 完整依赖锁文件（76 个），
+#     由 `pip freeze` 自动生成，记录"装到环境里每个包的确切版本"
+#
+# 推荐工作流：
+#   1. 升级依赖：pip install --upgrade xxx，然后 pip freeze > requirements.txt
+#   2. 安装：pip install -r requirements.txt（复现完整环境）
+#   3. 或：pip install -e ".[dev]"（只装直接依赖 + dev）
+#
+# ==================== 项目元数据 ====================
+[project]
+name = "study-ai-agent"
+version = "0.1.0"
+description = "LangChain + AG-UI AI Agent 学习项目"
+requires-python = ">=3.10"
+dependencies = [
+    # ---- LLM / Agent 生态（LangChain 1.x 原生） ----
+    # LangChain 1.x 把 Agent 运行时放在 `langchain.agents` 统一暴露
+    # （`create_agent` + `AgentMiddleware` + `HumanInTheLoopMiddleware`），
+    # 类型安全由 Pydantic 模型贯穿（`response_format=BaseModel`、
+    # `with_structured_output`、AG-UI 事件等）。
+    # 不再单独引入 Pydantic AI runtime——保留 Pydantic 模型即得到同等类型安全。
+    "langchain>=1.3.4",
+    "langchain-core>=1.4.0",
+    "langchain-classic>=1.0.7",
+    "langchain-community>=0.4.2",
+    "langchain-openai>=1.2.2",
+    "langchain-deepseek>=1.0.1",
+    "langgraph>=1.2.4",
+    "langgraph-checkpoint>=4.1.1",
+
+    # ---- Web 服务 ----
+    "fastapi>=0.136.3",
+    "uvicorn>=0.48.0",
+
+    # ---- 数据/配置 ----
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.1",
+    "python-dotenv>=1.2.2",
+
+    # ---- HTTP 客户端 ----
+    "httpx>=0.28.1",
+    "requests>=2.34.2",
+
+    # ---- AG-UI 协议层 ----
+    # 官方协议（事件 / 编码器） + LangGraph 适配器。
+    # 不再依赖 CopilotKit 私有 SDK；任何 AG-UI 兼容前端都能对接。
+    "ag-ui-protocol>=0.1.19",
+    "ag-ui-langgraph>=0.0.37",
+
+    # ---- 实用 ----
+    "numpy>=2.4.6",
+]
+
+[tool.setuptools.packages.find]
+# `src.*` is the library; `cli.*` is the top-level application entry-point
+# package that backs the console scripts below. Both are siblings of
+# pyproject.toml at the project root.
+include = ["src.*", "cli.*"]
+where = ["."]
+
+# 把 config/pii_keywords.json 作为顶级配置文件打包
+# 用户安装包后可修改该文件来自定义 PII 规则
+[tool.setuptools.data-files]
+"" = ["config/pii_keywords.json"]
+
+[project.optional-dependencies]
+# `dev` is the "kitchen-sink" install target: core deps + test/lint tools
+# + every optional tool-package the agent may need at runtime.
+# After `pip install -e ".[dev]"` no tool should be missing.
+dev = [
+    "ruff>=0.8.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    # ---- Optional tool deps (see src/agent/tools/* for graceful-degradation) ----
+    "wikipedia>=1.4.0",        # enables knowledge_tools.wikipedia
+    "ddgs>=1.0.0",             # enables search_tools.search (new name; duckduckgo-search also works)
+]
+
+# ==================== 命令入口 ====================
+# pip install -e . 后可直接在终端运行这些命令
+# 用法: dev / prod / lint / fmt
+[project.scripts]
+dev = "cli.commands:dev"
+prod = "cli.commands:prod"
+lint = "cli.commands:lint"
+fmt = "cli.commands:fmt"
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+# 代码格式化和 lint 配置
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+# ==================== pytest 配置 ====================
+[tool.pytest.ini_options]
+# 默认行为：标记为 ``@pytest.mark.asyncio`` 的协程函数会被自动当 async case 跑
+asyncio_mode = "auto"
+# 测试发现路径（默认就是 tests，按主题分子目录）
+testpaths = ["tests"]
+# 安静一些，少打 fixture 路径
+addopts = "-ra --strict-markers"
