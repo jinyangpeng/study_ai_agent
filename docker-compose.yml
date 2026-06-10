@@ -1,0 +1,78 @@
+# ==================== Docker Compose ====================
+# 一键起后端 + 前端。
+#
+# 用法：
+#   cp .env.example .env             # 填入 LLM API Key
+#   docker compose build             # 构建镜像
+#   docker compose up -d             # 后台启动
+#   docker compose logs -f backend   # 看后端日志
+#   docker compose down              # 停止
+#   docker compose down -v           # 停止并清掉 volumes
+# =======================================================
+name: study-ai-agent
+
+services:
+  # ----------------- 后端（LangChain + AG-UI） -----------------
+  backend:
+    container_name: study-ai-agent-backend
+    build:
+      context: ./study_ai_agent
+      dockerfile: Dockerfile
+    image: study-ai-agent-backend:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # 容器内固定值；端口暴露与运行时配置
+      ENV: production
+      HOST: 0.0.0.0
+      PORT: "8000"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      WORKERS: "1"   # SSE 长连接：单 worker 即可，多 worker 需要 sticky session
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      # 持久化日志（容器外可见）
+      - ./logs/backend:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - agent-net
+
+  # ----------------- 前端（Vite + nginx） -----------------
+  frontend:
+    container_name: study-ai-agent-frontend
+    build:
+      context: ./study_ai_agent_ui
+      dockerfile: Dockerfile
+      args:
+        # 浏览器看到的 API 地址。如果是同主机 compose 网络，让前端直接走 backend:8000；
+        # 如果浏览器在 compose 外部，需要改成 http://localhost:8000 或公网地址。
+        VITE_APP_TITLE: ${VITE_APP_TITLE:-Study AI Agent}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+        VITE_HEALTH_CHECK_URL: ${VITE_HEALTH_CHECK_URL:-http://localhost:8000/health}
+    image: study-ai-agent-frontend:latest
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # nginx 反代上游（容器内走 compose 服务名 backend:8000）
+      BACKEND_UPSTREAM: http://backend:8000
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+    driver: bridge

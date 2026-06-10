@@ -1,0 +1,48 @@
+# ==================== 根 .dockerignore（供 compose 上下文使用） ====================
+# compose 在根目录执行构建时，会把根目录所有文件都发送给 Docker daemon。
+# 这里把不需要的本地产物排除掉。
+# =====================================================================
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# 文档与编辑器
+README.md
+LICENSE
+docs/
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 前端 / 后端自身的 .dockerignore / Dockerfile（避免重复）
+study_ai_agent/Dockerfile
+study_ai_agent/.dockerignore
+study_ai_agent_ui/Dockerfile
+study_ai_agent_ui/.dockerignore
+
+# 前端构建产物与依赖
+study_ai_agent_ui/node_modules/
+study_ai_agent_ui/dist/
+study_ai_agent_ui/build/
+
+# 后端虚拟环境与缓存
+study_ai_agent/.venv/
+study_ai_agent/venv/
+study_ai_agent/__pycache__/
+study_ai_agent/**/__pycache__/
+study_ai_agent/.pytest_cache/
+study_ai_agent/.ruff_cache/
+study_ai_agent/*.egg-info/
+
+# 敏感 / 运行时数据
+.env
+.env.*
+!.env.example
+logs/
+*.log
+*.jsonl

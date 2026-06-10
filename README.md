@@ -67,6 +67,8 @@ study_ai_agent/                 # ← 仓库根（monorepo）
 
 ## 5 分钟跑起来
 
+### 方式 A：本地（venv + npm）
+
 完整步骤见 [`docs/QUICKSTART.md`](docs/QUICKSTART.md)，下面是极简版：
 
 ```bash
@@ -87,11 +89,27 @@ npm run dev                     # http://localhost:3000
 
 打开浏览器后会自动跳到 `/chat`，在左侧选择智能体（默认 `research`），右侧可以实时看到 plan / review / citations 的变化。
 
+### 方式 B：Docker / Docker Compose
+
+```bash
+# 在仓库根
+cp .env.example .env             # 编辑后填入至少 1 个 LLM API Key
+docker compose build
+docker compose up -d
+
+# 打开浏览器
+#   前端：http://localhost:3000
+#   后端健康：http://localhost:8000/health
+```
+
+详见 [`docs/DOCKER.md`](docs/DOCKER.md)。
+
 ## 文档导航
 
 | 文档 | 适合谁 | 介绍 |
 | --- | --- | --- |
-| [docs/QUICKSTART.md](docs/QUICKSTART.md) | 新用户 | 5 分钟本地起服务，curl 跑通 SSE |
+| [docs/QUICKSTART.md](docs/QUICKSTART.md) | 新用户 | 5 分钟本地起服务 / curl 跑通 SSE |
+| [docs/DOCKER.md](docs/DOCKER.md) | 部署者 | Docker / Compose 部署、镜像细节、调优 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 二次开发者 | PPAS 图、中间件顺序、AG-UI 事件流 |
 | [docs/AGENTS.md](docs/AGENTS.md) | 二次开发者 | 新增 Skill / Provider / Tool 的标准流程 |
 | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | 贡献者 | 提 PR / 提 Issue 的规范 |

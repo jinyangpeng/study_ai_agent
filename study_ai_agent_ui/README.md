@@ -47,6 +47,32 @@ npm run build       # tsc -b && vite build，输出到 dist/
 npm run preview     # 本地预览构建产物
 ```
 
+## Docker 启动
+
+仓库根目录用 `docker compose` 一键起后端 + 前端：
+
+```bash
+# 仓库根
+cp .env.example .env             # 编辑后填入至少 1 个 LLM API Key
+docker compose build
+docker compose up -d
+
+# 浏览器打开 http://localhost:3000
+```
+
+构建期通过 `VITE_API_BASE_URL` 注入浏览器看到的后端地址，默认 `http://localhost:8000`（同主机访问）。
+镜像细节、生产化建议见 [`../docs/DOCKER.md`](../docs/DOCKER.md)。**仅构建前端镜像：**
+
+```bash
+docker build \
+  --build-arg VITE_API_BASE_URL=http://localhost:8000 \
+  -t study-ai-agent-frontend -f Dockerfile .
+
+docker run --rm -p 3000:80 \
+  -e BACKEND_UPSTREAM=http://host.docker.internal:8000 \
+  study-ai-agent-frontend
+```
+
 ## npm 脚本
 
 | 命令 | 说明 |

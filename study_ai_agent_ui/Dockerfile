@@ -1,0 +1,61 @@
+# ==================== 前端 Dockerfile ====================
+# 多阶段构建：
+#   builder   - node:20-alpine 装依赖 + 跑 vite build
+#   runtime   - nginx:alpine 把 dist/ 静态托管，同时反代 /api 到后端
+#
+# 构建：
+#   docker build \
+#     --build-arg VITE_API_BASE_URL=http://localhost:8000 \
+#     -t study-ai-agent-frontend \
+#     -f study_ai_agent_ui/Dockerfile study_ai_agent_ui
+# 运行：
+#   docker run --rm -p 3000:80 study-ai-agent-frontend
+#   访问 http://localhost:3000
+# =================================================================
+# ---- builder 阶段：装依赖并打包 ----
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# 1) 先 copy 锁文件，最大化层缓存命中
+COPY package.json package-lock.json* ./
+RUN npm ci --no-audit --no-fund
+
+# 2) 复制源码
+COPY . .
+
+# 3) 构建期注入 Vite 变量（默认指向同主机后端；可在 docker run / compose 时覆盖）
+ARG VITE_APP_TITLE="Study AI Agent"
+ARG VITE_API_BASE_URL="http://localhost:8000"
+ARG VITE_HEALTH_CHECK_URL="http://localhost:8000/health"
+ENV VITE_APP_TITLE=${VITE_APP_TITLE} \
+    VITE_API_BASE_URL=${VITE_API_BASE_URL} \
+    VITE_HEALTH_CHECK_URL=${VITE_HEALTH_CHECK_URL}
+
+RUN npm run build
+
+# ---- runtime 阶段：nginx 托管 + 反代 ----
+FROM nginx:1.27-alpine AS runtime
+
+# 删除默认站点配置 + 装 envsubst（alpine 基础镜像里通常在 busybox-extras）
+RUN rm -f /etc/nginx/conf.d/default.conf \
+    && apk add --no-cache gettext
+
+# 写入自定义配置（SPA fallback + /api 反代 + SSE 友好超时）
+# 注意：这是模板，由 entrypoint.sh 用 envsubst 渲染后覆盖
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# 复制构建产物
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# 启动脚本：渲染 nginx 模板 + 启动 nginx
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+EXPOSE 80
+
+# nginx:alpine 自带 HEALTHCHECK，可由编排层覆盖
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+    CMD wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
