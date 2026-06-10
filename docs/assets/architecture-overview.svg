@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Architecture Overview Placeholder">
+  <defs>
+    <style>
+      .bg { fill: #0f172a; }
+      .title { fill: #e2e8f0; font: 600 28px -apple-system, "Segoe UI", system-ui, sans-serif; }
+      .subtitle { fill: #94a3b8; font: 400 16px -apple-system, "Segoe UI", system-ui, sans-serif; }
+      .box { fill: #1e293b; stroke: #334155; stroke-width: 2; }
+      .label { fill: #cbd5e1; font: 500 14px -apple-system, "Segoe UI", system-ui, sans-serif; text-anchor: middle; }
+      .small { fill: #64748b; font: 400 12px -apple-system, "Segoe UI", system-ui, sans-serif; text-anchor: middle; }
+      .arrow { stroke: #475569; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" />
+    </marker>
+  </defs>
+  <rect class="bg" width="960" height="540" />
+
+  <text class="title" x="480" y="50" text-anchor="middle">Study AI Agent — Architecture Overview</text>
+  <text class="subtitle" x="480" y="78" text-anchor="middle">replace docs/assets/architecture-overview.png with a real diagram</text>
+
+  <!-- Frontend -->
+  <rect class="box" x="40" y="140" width="220" height="260" rx="8" />
+  <text class="label" x="150" y="180">Frontend (Vite + React)</text>
+  <text class="small" x="150" y="210">Chat / Config pages</text>
+  <text class="small" x="150" y="232">assistant-ui runtime</text>
+  <text class="small" x="150" y="254">Context (Config / Session /</text>
+  <text class="small" x="150" y="272">Skill / AguiState)</text>
+  <text class="small" x="150" y="300">lib/agui (SSE + controller)</text>
+
+  <!-- Protocol -->
+  <rect class="box" x="370" y="140" width="220" height="260" rx="8" />
+  <text class="label" x="480" y="180">AG-UI Protocol</text>
+  <text class="small" x="480" y="210">ag-ui-protocol events</text>
+  <text class="small" x="480" y="232">EventEncoder (SSE)</text>
+  <text class="small" x="480" y="254">ag-ui-langgraph</text>
+  <text class="small" x="480" y="280">POST /  (RunAgentInput)</text>
+  <text class="small" x="480" y="302">GET /skeletons</text>
+
+  <!-- Runtime -->
+  <rect class="box" x="700" y="140" width="220" height="260" rx="8" />
+  <text class="label" x="810" y="180">Runtime (Python)</text>
+  <text class="small" x="810" y="210">FastAPI server</text>
+  <text class="small" x="810" y="232">Skill registry</text>
+  <text class="small" x="810" y="254">PPAS LangGraph per skill</text>
+  <text class="small" x="810" y="276">Middleware pipeline</text>
+  <text class="small" x="810" y="298">ModelFactory + Providers</text>
+
+  <!-- Arrows -->
+  <line class="arrow" x1="260" y1="270" x2="370" y2="270" />
+  <line class="arrow" x1="590" y1="270" x2="700" y2="270" />
+
+  <!-- Skills row -->
+  <rect class="box" x="700" y="420" width="220" height="80" rx="8" />
+  <text class="label" x="810" y="450">Skills: coding / qa / research</text>
+  <text class="small" x="810" y="475">tools · hitl_rules · prompts</text>
+  <line class="arrow" x1="810" y1="400" x2="810" y2="420" />
+</svg>
