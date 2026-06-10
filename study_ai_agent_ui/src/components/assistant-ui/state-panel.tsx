@@ -19,11 +19,11 @@ import { cn } from '@/lib/utils';
 
 export interface StatePanelProps {
   className?: string;
-  /** 默认是否展开 */
+  /** 默认是否展开。默认 false —— 大多数时候不打扰用户 */
   defaultOpen?: boolean;
 }
 
-export function StatePanel({ className, defaultOpen = true }: StatePanelProps) {
+export function StatePanel({ className, defaultOpen = false }: StatePanelProps) {
   const [open, setOpen] = useState(defaultOpen);
   const { state, resetState } = useAguiState();
 
@@ -35,8 +35,8 @@ export function StatePanel({ className, defaultOpen = true }: StatePanelProps) {
     (state.code_changes && state.code_changes.length > 0) ||
     Boolean(state.final_answer);
 
-  if (!hasContent) {
-    return null; // 没有 state 时不渲染
+  if (!hasContent && !open) {
+    return null; // 没有 state 且折叠时，不渲染折叠条
   }
 
   return (
@@ -53,6 +53,12 @@ export function StatePanel({ className, defaultOpen = true }: StatePanelProps) {
             <div className="flex items-center gap-2 text-sm font-semibold">
               <ListChecks size={16} />
               <span>执行状态</span>
+              {/* 新增未读红点提示：内容有更新时显示 */}
+              {hasContent && (
+                <span className="bg-primary/15 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-medium">
+                  新
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <Button
@@ -87,10 +93,15 @@ export function StatePanel({ className, defaultOpen = true }: StatePanelProps) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="text-muted-foreground hover:text-foreground flex h-full w-full items-start justify-center pt-4 transition-colors"
+          className="text-muted-foreground hover:text-foreground hover:bg-muted/60 flex h-full w-full flex-col items-center justify-start gap-2 py-3 transition-colors"
           title="展开状态面板"
         >
           <ListChecks size={16} className="-rotate-90" />
+          {hasContent && (
+            <span className="bg-primary text-primary-foreground flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-medium">
+              1
+            </span>
+          )}
         </button>
       )}
     </aside>

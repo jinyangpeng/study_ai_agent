@@ -107,18 +107,38 @@ export async function runAguiAgent(input: AguiRunInput): Promise<AguiRunResult> 
   const toolBuffers = new Map<string, { name: string; args: string; result?: string }>();
   let finalState: AguiStateSnapshot | null = null;
 
+  const usedMessageIds = new Set<string>();
+  history.forEach((m) => usedMessageIds.add(m.id));
+
+  const messageIdMap = new Map<string, string>();
+
+  function getSafeMessageId(originalId: string): string {
+    if (messageIdMap.has(originalId)) {
+      return messageIdMap.get(originalId)!;
+    }
+    let newId = originalId;
+    while (usedMessageIds.has(newId)) {
+      newId = `${originalId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    }
+    usedMessageIds.add(newId);
+    messageIdMap.set(originalId, newId);
+    return newId;
+  }
+
   const parser = createSseParser({
     onEvent: (event: AguiEvent) => {
       onDebug?.('event', event);
       switch (event.type) {
         case 'TEXT_MESSAGE_START': {
           const e = event as TextMessageStartEvent;
-          textBuffers.set(e.message_id, { role: e.role, text: '' });
+          const safeId = getSafeMessageId(e.message_id);
+          textBuffers.set(safeId, { role: e.role, text: '' });
           break;
         }
         case 'TEXT_MESSAGE_CONTENT': {
           const e = event as TextMessageContentEvent;
-          const buf = textBuffers.get(e.message_id);
+          const safeId = getSafeMessageId(e.message_id);
+          const buf = textBuffers.get(safeId);
           if (buf) {
             buf.text += e.delta;
             input.onTextDelta?.(e.message_id, e.delta);

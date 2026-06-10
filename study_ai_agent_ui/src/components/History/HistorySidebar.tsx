@@ -8,15 +8,21 @@
  *   - 按日期分组（今天 / 昨天 / 本周 / 更早）
  *   - 搜索关键字
  *   - 显示当前 skill 图标
+ *   - 双击会话标题进入内联重命名
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Check,
   MessageSquarePlus,
+  Pencil,
   Search,
   Trash2,
   X,
   MoreHorizontal,
   Sparkles,
+  Code2,
+  Compass,
+  HelpCircle,
 } from 'lucide-react';
 
 import { useSession, useSkill } from '@/context';
@@ -70,6 +76,7 @@ export function HistorySidebar({ collapsed, className }: HistorySidebarProps) {
         >
           <MessageSquarePlus size={14} />
           <span>新建会话</span>
+          <span className="text-primary-foreground/60 ml-auto text-[10px]">⌘K</span>
         </Button>
         <div className="border-border bg-background flex items-center gap-1.5 rounded-md border px-2 py-1">
           <Search className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
@@ -106,10 +113,11 @@ export function HistorySidebar({ collapsed, className }: HistorySidebarProps) {
                 {items.map((s) => (
                   <SessionItem
                     key={s.id}
-                    session={s}
+                    sessionMeta={s}
                     active={s.id === session.activeId}
                     onClick={() => session.switchTo(s.id)}
                     onDelete={() => session.remove(s.id)}
+                    onRename={(title) => session.rename(s.id, title)}
                   />
                 ))}
               </ul>
@@ -127,19 +135,24 @@ export function HistorySidebar({ collapsed, className }: HistorySidebarProps) {
 // ---- 子组件 ---------------------------------------------------------------
 
 function SessionItem({
-  session,
+  sessionMeta,
   active,
   onClick,
   onDelete,
+  onRename,
 }: {
-  session: SessionMeta;
+  sessionMeta: SessionMeta;
   active: boolean;
   onClick: () => void;
   onDelete: () => void;
+  onRename: (title: string) => void;
 }) {
   const [hover, setHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(sessionMeta.title);
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -149,6 +162,21 @@ function SessionItem({
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const Icon = iconForSkill(sessionMeta.skillId);
+
+  const commitRename = () => {
+    const t = draftTitle.trim();
+    if (t) onRename(t);
+    setEditing(false);
+  };
 
   return (
     <li>
@@ -160,19 +188,53 @@ function SessionItem({
         )}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
-        onClick={onClick}
+        onClick={() => !editing && onClick()}
+        onDoubleClick={() => {
+          setDraftTitle(sessionMeta.title);
+          setEditing(true);
+        }}
       >
-        <Sparkles className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+        <Icon className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px]">{session.title}</div>
-          <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
-            <span>{session.messageCount} 条消息</span>
-            <span>·</span>
-            <span>{formatTime(session.updatedAt)}</span>
-          </div>
+          {editing ? (
+            <input
+              ref={inputRef}
+              value={draftTitle}
+              onChange={(e) => setDraftTitle(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename();
+                else if (e.key === 'Escape') setEditing(false);
+              }}
+              onBlur={commitRename}
+              className="bg-background text-foreground w-full rounded border px-1 text-[13px] outline-none"
+            />
+          ) : (
+            <>
+              <div className="truncate text-[13px]">{sessionMeta.title}</div>
+              <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
+                <span>{sessionMeta.messageCount} 条消息</span>
+                <span>·</span>
+                <span>{formatTime(sessionMeta.updatedAt)}</span>
+              </div>
+            </>
+          )}
         </div>
-        {(hover || menuOpen) && (
+        {(hover || menuOpen) && !editing && (
           <div className="flex items-center">
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground hover:bg-background/60 rounded p-0.5"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDraftTitle(sessionMeta.title);
+                setEditing(true);
+                setMenuOpen(false);
+              }}
+              title="重命名"
+            >
+              <Pencil size={12} />
+            </button>
             <button
               type="button"
               className="text-muted-foreground hover:text-foreground hover:bg-background/60 rounded p-0.5"
@@ -200,6 +262,9 @@ function SessionItem({
             )}
           </div>
         )}
+        {active && !editing && (
+          <Check className="text-primary h-3.5 w-3.5 shrink-0" />
+        )}
       </div>
     </li>
   );
@@ -212,9 +277,22 @@ function EmptyState() {
         <MessageSquarePlus className="h-5 w-5" />
       </div>
       <div className="text-foreground text-sm font-medium">还没有会话</div>
-      <div className="mt-1 text-xs">点击"新建会话"开始</div>
+      <div className="mt-1 text-xs">点击"新建会话"或按 ⌘K</div>
     </div>
   );
+}
+
+function iconForSkill(id?: string): typeof Code2 {
+  switch (id) {
+    case 'coding':
+      return Code2;
+    case 'research':
+      return Compass;
+    case 'qa':
+      return HelpCircle;
+    default:
+      return Sparkles;
+  }
 }
 
 // ---- 分组逻辑 -------------------------------------------------------------

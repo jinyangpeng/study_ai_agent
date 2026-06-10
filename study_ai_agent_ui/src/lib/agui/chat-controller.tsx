@@ -72,9 +72,16 @@ function makeUserMessage(text: string): ThreadMessageLike {
   };
 }
 
-function makeStreamingAssistant(): ThreadMessageLike {
+function makeStreamingAssistant(usedIds?: Set<string>): ThreadMessageLike {
+  let id = genId();
+  if (usedIds) {
+    while (usedIds.has(id)) {
+      id = genId();
+    }
+    usedIds.add(id);
+  }
   return {
-    id: genId(),
+    id,
     role: 'assistant',
     content: '',
     createdAt: new Date(),
@@ -83,13 +90,23 @@ function makeStreamingAssistant(): ThreadMessageLike {
 }
 
 function messagesToAguiHistory(messages: ThreadMessageLike[]): AguiMessage[] {
+  const usedIds = new Set<string>();
   return messages
     .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'system')
-    .map((m) => ({
-      id: m.id ?? genId(),
-      role: m.role as AguiMessage['role'],
-      content: extractTextFromContent(m.content),
-    }));
+    .map((m) => {
+      let id = m.id;
+      if (!id) {
+        do {
+          id = genId();
+        } while (usedIds.has(id));
+      }
+      usedIds.add(id);
+      return {
+        id,
+        role: m.role as AguiMessage['role'],
+        content: extractTextFromContent(m.content),
+      };
+    });
 }
 
 function buildAssistantContent(
@@ -114,14 +131,19 @@ function buildAssistantContent(
  * 把 ThreadMessageLike 转换为 assistant-ui 内部的 ThreadMessage
  *
  * ExternalStoreAdapter 的 ``convertMessage`` 需要这个映射。
+ *
+ * 关键：即使上游传来 id 缺失的脏数据，也要保证这里返回的 ThreadMessage.id
+ * 全局唯一。assistant-ui 内部会以 id 为主键去重，重复 id 会抛
+ * "A message with the same id already exists in the parent tree"。
  */
 function toThreadMessage(m: ThreadMessageLike, idx: number): ThreadMessage {
   const custom: Record<string, unknown> = {};
   if (m.metadata?.custom && typeof m.metadata.custom === 'object') {
     Object.assign(custom, m.metadata.custom);
   }
+  const fallbackId = `tmp-${idx}-${Math.random().toString(36).slice(2, 8)}`;
   return {
-    id: m.id ?? `tmp-${idx}`,
+    id: m.id ?? fallbackId,
     role: m.role,
     content:
       typeof m.content === 'string'
@@ -164,10 +186,25 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
   const persistedMessages = session.currentMessages;
 
   // 持久化 + 流式 合并的视图
-  const viewMessages = useMemo<ThreadMessageLike[]>(
-    () => [...persistedMessages, ...streamingMessages],
-    [persistedMessages, streamingMessages],
-  );
+  // 关键：进入 runtime 前必须保证每条消息都有唯一 id，
+  // 防止 assistant-ui 抛 "A message with the same id already exists"。
+  // 这里做：1) 缺失 id 的消息补一个；2) 按 id 去重，保留首次出现。
+  const viewMessages = useMemo<ThreadMessageLike[]>(() => {
+    const seen = new Set<string>();
+    const out: ThreadMessageLike[] = [];
+    const fallback = `m-${Date.now().toString(36)}`;
+    for (const m of [...persistedMessages, ...streamingMessages]) {
+      if (!m) continue;
+      let id = m.id;
+      if (!id) {
+        id = `${fallback}-${out.length}-${Math.random().toString(36).slice(2, 6)}`;
+      }
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({ ...m, id });
+    }
+    return out;
+  }, [persistedMessages, streamingMessages]);
 
   // 当前 run 的 AbortController
   const abortRef = useRef<AbortController | null>(null);
@@ -204,13 +241,21 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
     const currentRun = ++runIdRef.current;
     setIsRunning(true);
 
-    const history = messagesToAguiHistory([...persistedMessages, userMessage]);
+    // 1) 先把 user 消息写进 session —— 这样会话标题能立即用首条用户消息生成
+    //    同时 streaming 阶段出错时 user 消息也不会丢
+    const baseMessages = [...persistedMessages, userMessage];
+    session.setMessages(activeId, baseMessages);
+
+    const history = messagesToAguiHistory(baseMessages);
     const threadId = activeId;
     const skill = skillRef.current;
     const apiBaseUrl = apiBaseUrlRef.current;
 
-    // 临时占位
-    const placeholder = makeStreamingAssistant();
+    const usedIds = new Set<string>();
+    persistedMessages.forEach((m) => m.id && usedIds.add(m.id));
+    userMessage.id && usedIds.add(userMessage.id);
+
+    const placeholder = makeStreamingAssistant(usedIds);
     setStreamingMessages([placeholder]);
 
     const ac = new AbortController();
@@ -242,16 +287,12 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
         status: { type: 'complete', reason: 'stop' },
       };
 
-      // 落盘：持久化消息 + 这次的 user + assistant
-      // 注意：此时 persistedMessages 来自闭包，session.setMessages
-      // 会更新全局 store，本组件下次 render 时会拿到新值
       session.setMessages(activeId, [...persistedMessages, userMessage, finalAssistant]);
       setStreamingMessages([]);
     } catch (err) {
       if (currentRun !== runIdRef.current) return;
       const error = err instanceof Error ? err : new Error(String(err));
       if (error.name === 'AbortError') {
-        // 取消：保留已生成的部分
         const partial: ThreadMessageLike = {
           ...placeholder,
           status: { type: 'incomplete', reason: 'cancelled' },

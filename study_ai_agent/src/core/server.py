@@ -116,6 +116,7 @@ async def list_skills() -> dict[str, Any]:
                 "description": skill.description,
                 "tool_count": len(skill.tools),
                 "hitl_rules": skill.hitl_rules,
+                "quick_prompts": getattr(skill, "quick_prompts", []) or [],
             }
             for skill in registry.values()
         ],

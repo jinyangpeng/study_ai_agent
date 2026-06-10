@@ -34,6 +34,34 @@ class CodingSkill(BaseSkill):
         "写文件和 shell 命令会触发人工审批。"
     )
 
+    # ---- 前端欢迎区的快捷提示卡 ----
+    quick_prompts: list[dict[str, str]] = [
+        {
+            "icon": "Code2",
+            "title": "LRU 缓存",
+            "description": "带完整测试",
+            "prompt": "帮我用 Python 实现一个 LRU 缓存，要求有完整的测试用例。",
+        },
+        {
+            "icon": "BookOpen",
+            "title": "代码解读",
+            "description": "理解项目结构",
+            "prompt": "请解释当前项目 src/core 目录下的核心模块职责。",
+        },
+        {
+            "icon": "Lightbulb",
+            "title": "功能设计",
+            "description": "给一组需求",
+            "prompt": "给一个 AI Agent 产品设计 5 个差异化的核心功能。",
+        },
+        {
+            "icon": "Wrench",
+            "title": "Bug 排查",
+            "description": "贴异常栈分析",
+            "prompt": "分析下面这段 Python 报错的根因，并给出最小修复 patch：\n```\nTraceback ...\n```",
+        },
+    ]
+
     # ---- prompts ----
     planner_prompt: str = (
         "You are a planning specialist for software-engineering tasks.\n"

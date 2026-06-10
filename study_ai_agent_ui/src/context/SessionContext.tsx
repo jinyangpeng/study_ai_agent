@@ -128,16 +128,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const title = deriveTitle(messages);
         const messageCount = messages.length;
         const now = Date.now();
-        const sessions = prev.sessions.map((s) =>
-          s.id === id
-            ? {
-                ...s,
-                title: s.title === '新会话' || s.title === '' ? title : s.title,
-                messageCount,
-                updatedAt: now,
-              }
-            : s,
-        );
+        const sessions = prev.sessions.map((s) => {
+          if (s.id !== id) return s;
+          // 1) 标题：仅在还是"新会话"或空时更新（避免覆盖用户手动重命名）
+          // 2) 但如果消息数变 0（清空），重置为"新会话"
+          const nextTitle = messageCount === 0
+            ? '新会话'
+            : s.title === '新会话' || s.title === ''
+              ? title
+              : s.title;
+          return { ...s, title: nextTitle, messageCount, updatedAt: now };
+        });
         return { ...prev, messages: nextMessages, sessions };
       });
     },

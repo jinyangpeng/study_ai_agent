@@ -39,6 +39,34 @@ class ResearchSkill(BaseSkill):
         "纯只读，不会修改文件或执行命令。"
     )
 
+    # ---- 前端欢迎区的快捷提示卡 ----
+    quick_prompts: list[dict[str, str]] = [
+        {
+            "icon": "Compass",
+            "title": "LLM Agent 趋势",
+            "description": "技术/应用/挑战",
+            "prompt": "总结 2025 年 LLM Agent 的最新发展趋势，分技术、应用、挑战三部分。",
+        },
+        {
+            "icon": "Search",
+            "title": "对比综述",
+            "description": "两家方案",
+            "prompt": "对比 LangGraph 与 AutoGen 在多 Agent 编排上的设计理念与适用场景。",
+        },
+        {
+            "icon": "BookOpen",
+            "title": "找权威源",
+            "description": "引文综述",
+            "prompt": "请综述 RAG 领域的 5 篇关键论文（带发表年份与主要贡献）。",
+        },
+        {
+            "icon": "FileText",
+            "title": "快速摘要",
+            "description": "一篇长文",
+            "prompt": "帮我把注意力机制的核心思想用 200 字以内说清楚，并给出一个直观的类比。",
+        },
+    ]
+
     # ---- prompts ----
     planner_prompt: str = (
         "You are a research planner.\n"

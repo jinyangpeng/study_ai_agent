@@ -8,7 +8,12 @@ from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-load_dotenv(BASE_DIR / ".env")
+
+env = os.getenv("ENV", "development")
+env_file = BASE_DIR / f".env.{env}"
+if not env_file.exists():
+    env_file = BASE_DIR / ".env"
+load_dotenv(env_file)
 
 
 class Settings(BaseSettings):

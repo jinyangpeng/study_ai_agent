@@ -22,11 +22,13 @@ if TYPE_CHECKING:
 # 直接 import 而不是懒加载 —— registry 在 :mod:`src.core.server` 的请求时
 # 才查，import 期间的额外开销可以接受。
 from src.skills.coding import CodingSkill
+from src.skills.qa import QASkill
 from src.skills.research import ResearchSkill
 
 # 显式声明注册表（不是自动 importlib），这样新加智能体时一目了然。
 SKILL_REGISTRY: dict[str, "SkillModule"] = {
     "coding": CodingSkill(),
+    "qa": QASkill(),
     "research": ResearchSkill(),
 }
 

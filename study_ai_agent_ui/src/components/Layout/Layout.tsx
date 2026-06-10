@@ -22,6 +22,7 @@ import { Topbar } from './Topbar';
 import { HistorySidebar } from '@/components/History';
 import { useConfig, useSession, useSkill } from '@/context';
 import type { Skeleton } from '@/features/skills';
+import { useKeyboardShortcuts } from '@/hooks';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
@@ -62,13 +63,34 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleSkillClick = useCallback(
     (id: string) => {
+      // 切换 skill 时：
+      //   - 如果当前会话已有消息，新建一个空会话（避免上下文混淆）
+      //   - 如果当前会话还是空的，只更新它的 skillId 标记
+      if (id === skill.currentSkill) {
+        setMobileMenuOpen(false);
+        return;
+      }
+      const currentSession = session.sessions.find((s) => s.id === session.activeId);
+      const isEmpty = !currentSession || currentSession.messageCount === 0;
+      if (isEmpty && currentSession) {
+        // 复用空会话 —— 更新元数据即可，title 保留"新会话"
+        // SessionContext 暂未提供 updateSkill，这里走 createNew 拿新 id 会更干净
+        session.createNew(id);
+      } else {
+        session.createNew(id);
+      }
       skill.setSkill(id);
       setMobileMenuOpen(false);
     },
-    [skill],
+    [skill, session],
   );
 
   const currentNav = NAV_ITEMS.find((item) => item.path === location.pathname);
+
+  // 全局快捷键：⌘/Ctrl+K 新建会话
+  useKeyboardShortcuts({
+    onNewChat: () => session.createNew(skill.currentSkill),
+  });
 
   return (
     <div className="bg-background text-foreground flex h-screen w-screen overflow-hidden">

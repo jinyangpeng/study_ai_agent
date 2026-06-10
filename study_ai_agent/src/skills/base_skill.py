@@ -27,6 +27,10 @@ class BaseSkill:
     executor_prompt: str = ""
     reviewer_prompt: str = ""
 
+    # ---- 前端欢迎区的快捷提示卡（按当前 skill 个性化） ----
+    # 列表里每条 = 一张卡。空 list = 前端用通用默认。
+    quick_prompts: list[dict[str, str]] = []
+
     @property
     def tools(self) -> list["BaseTool"]:
         """executor 可用的工具集。

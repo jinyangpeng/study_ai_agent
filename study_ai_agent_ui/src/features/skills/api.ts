@@ -3,7 +3,7 @@
  *
  * 对应后端 GET /skeletons，用于渲染智能体选择器。
  */
-import { http } from '@/lib/http';
+import { createHttpClient } from '@/lib/api/http';
 import type { SkeletonsResponse } from './types';
 
 /** 拉取所有已注册的智能体 */
