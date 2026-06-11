@@ -65,6 +65,25 @@ dev
 }
 ```
 
+### 2.1（可选）给网络类工具配代理
+
+如果 Wikipedia / DuckDuckGo 在你所在地区连不上，但 LLM 供应商本身能直连，
+可以**只对个别工具开代理**（默认全部直连）：
+
+```env
+# .env.development 末尾追加
+TOOL_HTTP_PROXY=http://127.0.0.1:10809
+TOOL_PROXY_WHITELIST=wikipedia,duckduckgo_results_json
+```
+
+行为：
+
+- 白名单里的 tool 在调用时临时切 `HTTP_PROXY` / `HTTPS_PROXY`，调用完立即还原。
+- 不在白名单的 tool 一律直连，**不污染** LLM 供应商。
+- 想关掉代理 → 把这两行注释掉，或把 `TOOL_PROXY_WHITELIST` 清空。
+
+完整机制见 [`study_ai_agent/src/core/tools/proxy.py`](../study_ai_agent/src/core/tools/proxy.py) 顶部 docstring。
+
 ## 3. 验证 skill 列表
 
 ```bash

@@ -179,11 +179,51 @@ study_ai_agent/
 | `ZAI_API_KEY` | `""` | 智谱 GLM API Key |
 | `DEEPSEEK_API_KEY` | `""` | DeepSeek API Key |
 | `DASHSCOPE_API_KEY` | `""` | 阿里通义千问 / DashScope API Key |
+| `DASHSCOPE_BASE_URL` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | 通义千问 OpenAI 兼容端点，可换企业内网 / 跨地域 |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | DeepSeek 端点 |
+| `ZAI_BASE_URL` | `https://open.bigmodel.cn/api/paas/v4/` | 智谱 GLM 端点 |
+| `QIANFAN_BASE_URL` | `https://qianfan.baidubce.com/v2` | 千帆端点 |
+| `TOOL_HTTP_PROXY` | `""` | 网络类工具的代理 URL（如 `http://127.0.0.1:10809`） |
+| `TOOL_PROXY_WHITELIST` | `""` | 走代理的 tool 名称白名单，逗号分隔；留空 = 全部直连 |
 | `LOG_LEVEL` | `INFO` | 日志级别（`DEBUG` / `INFO` / `WARNING` / `ERROR`） |
 | `HOST` | `0.0.0.0` | uvicorn 监听地址 |
 | `PORT` | `8000` | uvicorn 监听端口 |
 
 > 至少需要 1 个 LLM API Key，否则 `ModelFactory` 在启动时会打 `ERROR` 级别日志。
+
+### 网络类工具代理
+
+Python 默认不读系统代理。`requests` / `httpx` / `duckduckgo-search` /
+`wikipedia` 这几个库都会读 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量。
+
+如果直接在 `.env` 里写 `HTTP_PROXY=...`，会污染所有出网请求（包括 LLM
+供应商调用）。本项目提供**按 tool 白名单开代理**的方案：
+
+```env
+# 1) 设代理地址
+TOOL_HTTP_PROXY=http://127.0.0.1:10809
+# 2) 列需要走代理的 tool（与 langchain BaseTool.name 一致）
+TOOL_PROXY_WHITELIST=wikipedia,duckduckgo_results_json
+```
+
+行为：
+
+- 白名单内的 tool 在 `_run` 调用期间临时把 `HTTP_PROXY` / `HTTPS_PROXY` /
+  `http_proxy` / `https_proxy` 注入到 env，调用完立即还原。
+- 白名单外的 tool 完全不动 env，照常走直连。
+- `TOOL_PROXY_WHITELIST` 为空时即使配了 `TOOL_HTTP_PROXY` 也**不会**走代理。
+- 已有同名 `HTTP_PROXY` 也会被临时改写；调用完恢复为原值，**不污染** LLM 供应商。
+
+当前已接入代理感知的工具：
+
+| Tool 名称 | 模块 | 说明 |
+| --- | --- | --- |
+| `wikipedia` | [`src/core/tools/knowledge_tools.py`](src/core/tools/knowledge_tools.py) | 维基百科查询 |
+| `duckduckgo_results_json` | [`src/core/tools/search_tools.py`](src/core/tools/search_tools.py) | DuckDuckGo Web 搜索 |
+
+新加 tool 想支持代理，参考 [`docs/AGENTS.md §3.5`](../docs/AGENTS.md#35-让新工具支持代理)。
+
+实现见 [`src/core/tools/proxy.py`](src/core/tools/proxy.py)。
 
 ## HTTP API
 

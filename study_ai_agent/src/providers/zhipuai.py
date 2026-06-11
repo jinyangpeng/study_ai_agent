@@ -1,9 +1,8 @@
 """智谱 AI / Z.ai（GLM）供应商。
 
-按智谱官方 LangChain 集成指南（docs.bigmodel.cn/cn/guide/develop/langchain），
-直接走 ``langchain_openai.ChatOpenAI`` + 智谱 OpenAI 兼容端点，**不**
-使用 ``langchain_community.chat_models.zhipuai.ChatZhipuAI``（官方 sunset
-+ 自己实现了一层不完整的 OpenAI 协议，不支持 ``tool_choice="any"``）。
+走智谱的 **OpenAI 兼容端点**，使用 ``langchain_openai.ChatOpenAI``。
+**不**使用 ``langchain_community.chat_models.zhipuai.ChatZhipuAI``（官方
+sunset + 自己实现了一层不完整的 OpenAI 协议，不支持 ``tool_choice="any"``）。
 
 官方示例：
 
@@ -15,6 +14,8 @@
         openai_api_key="...",
         openai_api_base="https://open.bigmodel.cn/api/paas/v4/",
     )
+
+``base_url`` 可被环境变量 ``ZAI_BASE_URL`` 覆盖，方便走企业代理。
 """
 # -*- coding: utf-8 -*-
 from __future__ import annotations
@@ -25,12 +26,9 @@ from langchain_openai import ChatOpenAI
 from src.config import settings
 from src.providers.base import BaseModelProvider, ModelConfig
 
-# 智谱 OpenAI 兼容端点（参考智谱官方 LangChain 集成指南）
-_ZHIPU_OPENAI_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
-
 
 class ZhipuAIProvider(BaseModelProvider):
-    """智谱 AI / Z.ai（GLM）供应商。
+    """智谱 AI / Z.ai（GLM）供应商（OpenAI 兼容端点）。
 
     通过 OpenAI 兼容协议打智谱官方端点，自动获得：
     * 完整的 ``tool_choice`` 支持（``"auto"`` / ``"any"`` / 字典形式）
@@ -45,7 +43,8 @@ class ZhipuAIProvider(BaseModelProvider):
         return ChatOpenAI(
             model=config.model_name or "glm-5.1",
             api_key=settings.ZAI_API_KEY,
-            base_url=_ZHIPU_OPENAI_BASE_URL,
+            # 优先级：ModelConfig.base_url（程序覆盖） > settings 默认（环境变量）
+            base_url=config.base_url or settings.ZAI_BASE_URL,
             streaming=True,
         )
 

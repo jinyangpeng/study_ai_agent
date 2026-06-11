@@ -80,8 +80,8 @@ clean:
 
 # 创建开发环境 .env
 env-dev:
-	@if [ ! -f .env.development ]; then 		cp .env.example .env.development 2>/dev/null || 		echo -e "ENV=development\n\nDASHSCOPE_API_KEY=\nDEEPSEEK_API_KEY=\n\nLOG_LEVEL=DEBUG" > .env.development; 		echo "✅ 已创建 .env.development，请填入 API Key"; 	else echo "⏭️  .env.development 已存在"; fi
+	@if [ ! -f .env.development ]; then 		cp .env.example .env.development 2>/dev/null || 		echo -e "ENV=development\n\nAGENT_STRATEGY=priority\n\n# LLM API Keys (at least one)\nDASHSCOPE_API_KEY=\nDEEPSEEK_API_KEY=\nZAI_API_KEY=\nQIANFAN_API_KEY=\n\n# OpenAI-compatible base URLs (optional; defaults to vendor official endpoints)\n# DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1\n# DEEPSEEK_BASE_URL=https://api.deepseek.com\n# ZAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4/\n# QIANFAN_BASE_URL=https://qianfan.baidubce.com/v2\n\nLOG_LEVEL=DEBUG" > .env.development; 		echo "✅ 已创建 .env.development，请填入 API Key"; 	else echo "⏭️  .env.development 已存在"; fi
 
 # 创建生产环境 .env
 env-prod:
-	@if [ ! -f .env.production ]; then 		cp .env.example .env.production 2>/dev/null || 		echo -e "ENV=production\n\nDASHSCOPE_API_KEY=\nDEEPSEEK_API_KEY=\n\nLOG_LEVEL=INFO" > .env.production; 		echo "✅ 已创建 .env.production，请填入 API Key"; 	else echo "⏭️  .env.production 已存在"; fi
+	@if [ ! -f .env.production ]; then 		cp .env.example .env.production 2>/dev/null || 		echo -e "ENV=production\n\nAGENT_STRATEGY=priority\n\n# LLM API Keys (at least one)\nDASHSCOPE_API_KEY=\nDEEPSEEK_API_KEY=\nZAI_API_KEY=\nQIANFAN_API_KEY=\n\n# OpenAI-compatible base URLs (optional)\n# DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1\n# DEEPSEEK_BASE_URL=https://api.deepseek.com\n# ZAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4/\n# QIANFAN_BASE_URL=https://qianfan.baidubce.com/v2\n\nLOG_LEVEL=INFO" > .env.production; 		echo "✅ 已创建 .env.production，请填入 API Key"; 	else echo "⏭️  .env.production 已存在"; fi

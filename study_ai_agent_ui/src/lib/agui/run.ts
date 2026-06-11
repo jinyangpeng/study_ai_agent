@@ -37,6 +37,12 @@ export interface AguiRunInput {
   onTextDelta?: (messageId: string, delta: string) => void;
   /** 每个工具调用增量 */
   onToolCallDelta?: (toolCallId: string, delta: string) => void;
+  /**
+   * 阶段切换回调 —— STEP_STARTED 时触发，stepName 为新阶段；
+   * STEP_FINISHED 时 stepName 为 undefined。
+   * 用于在 Composer banner 中显示"当前正在做 X"。
+   */
+  onStageChange?: (stepName: string | undefined) => void;
 }
 
 export interface AguiTextBlock {
@@ -177,6 +183,15 @@ export async function runAguiAgent(input: AguiRunInput): Promise<AguiRunResult> 
           finalState = (event as StateSnapshotEvent).snapshot as AguiStateSnapshot;
           break;
         }
+        case 'STEP_STARTED': {
+          const e = event as Extract<AguiEvent, { type: 'STEP_STARTED' }>;
+          input.onStageChange?.(e.step_name);
+          break;
+        }
+        case 'STEP_FINISHED': {
+          input.onStageChange?.(undefined);
+          break;
+        }
         case 'RUN_ERROR': {
           const e = event as Extract<AguiEvent, { type: 'RUN_ERROR' }>;
           throw new Error(`AG-UI run 错误：${e.message}${e.code ? ` (${e.code})` : ''}`);
@@ -222,7 +237,11 @@ export async function runAguiAgent(input: AguiRunInput): Promise<AguiRunResult> 
       toolCallId,
       name: buf.name,
       argsText: buf.args,
-      ...(buf.result !== undefined ? { result: buf.result } : {}),
+      // 始终输出 result 字段（缺省视为空串 ''）——
+      // 之前用条件 spread 不写 result，assistant-ui 会把 part 状态锁在
+      // 'running' / 'requires-action'，UI 上就永远停在"等待工具返回结果…"。
+      // 这里强制设值，让 part 能正常进入 'complete'，空结果由前端另外提示。
+      result: buf.result ?? '',
     });
   }
 

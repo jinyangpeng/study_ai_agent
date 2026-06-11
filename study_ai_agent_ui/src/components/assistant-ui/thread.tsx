@@ -4,8 +4,15 @@
  * 封装 assistant-ui 的 ThreadPrimitive 集合，用 Tailwind 做样式。
  * 设计参照 shadcn/ui 官方示例 + AI Studio 风格：渐变欢迎区、quick prompt 卡片、
  * 消息操作行（复制 / 重新生成 / 反馈）。
+ *
+ * 生成期 UI 设计
+ * --------------
+ * - AI 消息气泡：内容为空 + running → 显示思考点（ThinkingDots）；有内容 → Markdown
+ * - Tool 调用：args 已就绪但 result 未到 → 显示"调用中…"loader
+ * - Composer 顶部：醒目 banner 提示"正在生成"，含 cancel 引导
+ * - StatePanel：state 首次出现内容时自动展开，用户手动关掉后不再自动开
  */
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionBarPrimitive,
   ComposerPrimitive,
@@ -44,7 +51,7 @@ import type { FC } from 'react';
 import { MarkdownText } from './markdown-text';
 import { ToolFallback } from './tool-fallback';
 import { Button } from './ui/button';
-import { useSkill } from '@/context';
+import { useSkill, useAguiState } from '@/context';
 import { cn } from '@/lib/utils';
 import type { QuickPrompt } from '@/features/skills';
 
@@ -250,6 +257,34 @@ const MessageTimestamp: FC<{ date: Date | string | number | undefined }> = ({ da
   );
 };
 
+// ---- Thinking dots -----------------------------------------------------
+
+/**
+ * AI 正在"思考"时的占位动画 —— assistant-ui 还没有暴露内容到气泡时
+ * 用三个小圆点跳一下表达"在干活了"，比空气泡友好得多。
+ */
+const ThinkingDots: FC = () => (
+  <div
+    className="text-muted-foreground flex items-center gap-1.5 py-2"
+    role="status"
+    aria-label="AI 正在思考"
+  >
+    <span
+      className="bg-primary/60 h-1.5 w-1.5 rounded-full animate-bounce"
+      style={{ animationDelay: '0ms' }}
+    />
+    <span
+      className="bg-primary/60 h-1.5 w-1.5 rounded-full animate-bounce"
+      style={{ animationDelay: '150ms' }}
+    />
+    <span
+      className="bg-primary/60 h-1.5 w-1.5 rounded-full animate-bounce"
+      style={{ animationDelay: '300ms' }}
+    />
+    <span className="text-muted-foreground ml-1 text-xs">正在思考…</span>
+  </div>
+);
+
 // ---- Messages ---------------------------------------------------------
 
 const UserMessage: FC = () => {
@@ -277,9 +312,35 @@ const UserMessage: FC = () => {
   );
 };
 
+/**
+ * 判断消息"是否有内容"：空字符串 / 空数组 / 全是空 text part 视为无内容。
+ * tool-call 只要存在就算"有内容"（即便 result 还没回来）。
+ */
+function useHasMessageContent(): boolean {
+  // 显式声明返回类型为 unknown —— useMessage 在不同 role 下推断的 content 类型
+  // 是不一样的（比如 user 是 string，assistant 是 ContentPart[]），不指定
+  // 会得到 never，导致 `.length` / `.some` 等调用报 TS2339。
+  const content = useMessage((s): unknown => s.content) as unknown;
+  return useMemo<boolean>(() => {
+    if (content == null) return false;
+    if (typeof content === 'string') return content.length > 0;
+    if (Array.isArray(content)) {
+      return content.some((p) => {
+        if (!p || typeof p !== 'object') return false;
+        const part = p as { type?: string; text?: string };
+        if (part.type === 'text') return Boolean(part.text);
+        if (part.type === 'tool-call') return true;
+        return Boolean((part as { text?: string }).text);
+      });
+    }
+    return true;
+  }, [content]);
+}
+
 const AssistantMessage: FC = () => {
   const createdAt = useMessage((s) => s.createdAt);
   const isRunning = useMessage((s) => s.status?.type === 'running');
+
   return (
     <MessagePrimitive.Root className="group/assist relative mb-5 grid w-full max-w-2xl auto-rows-auto grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 py-1">
       <div className="from-primary to-primary/70 text-primary-foreground col-start-1 row-span-2 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br text-xs font-semibold shadow-sm">
@@ -290,11 +351,11 @@ const AssistantMessage: FC = () => {
           <MessageErrorContent />
         </MessagePrimitive.If>
 
-        {/* 时间戳：行末对齐 */}
+        {/* 时间戳 + 生成中状态 */}
         <div className="text-muted-foreground/80 mt-1 flex items-center gap-2">
           <MessageTimestamp date={createdAt} />
           {isRunning && (
-            <span className="text-muted-foreground inline-flex items-center gap-1 text-[10px]">
+            <span className="text-primary/80 inline-flex items-center gap-1 text-[10px] font-medium">
               <Loader2 className="h-3 w-3 animate-spin" />
               生成中…
             </span>
@@ -322,6 +383,9 @@ const MessageErrorContent: FC = () => {
     const st = s.status;
     return st?.type === 'incomplete' && 'reason' in st && st.reason === 'error';
   });
+  const hasContent = useHasMessageContent();
+  const isRunning = useMessage((s) => s.status?.type === 'running');
+
   return (
     <div
       className={cn(
@@ -331,7 +395,12 @@ const MessageErrorContent: FC = () => {
       )}
       data-error={isError ? 'true' : undefined}
     >
-      <MessageParts text tools />
+      {/* 关键改进：内容为空 + running 时显示思考点；否则正常渲染 */}
+      {isRunning && !hasContent && !isError ? (
+        <ThinkingDots />
+      ) : (
+        <MessageParts text tools />
+      )}
     </div>
   );
 };
@@ -439,15 +508,51 @@ const EditComposer: FC = () => (
 
 // ---- Composer ---------------------------------------------------------
 
-/** 在 running 时显示在 Composer 上方的小提示 */
+/**
+ * 在 running 时显示在 Composer 上方的小提示。
+ * 比之前单行 "正在生成回复…" 更醒目，且包含"如何停止"的引导。
+ *
+ * 与 stage 联动 —— 后端 STEP_STARTED 事件推过来的 step_name 会被实时展示，
+ * 比如"正在制定计划"、"正在执行查询"。stage 为空时回退到通用文案。
+ */
+const STAGE_LABELS: Record<string, string> = {
+  plan: '正在制定计划',
+  planning: '正在制定计划',
+  execute: '正在执行',
+  executing: '正在执行',
+  review: '正在审核结果',
+  reviewing: '正在审核结果',
+  aggregate: '正在汇总结果',
+  aggregating: '正在汇总结果',
+  tool: '正在调用工具',
+  tool_call: '正在调用工具',
+};
+
 const ComposerRunningBanner: FC = () => {
   const isRunning = useThread((s) => s.isRunning);
+  const { currentStage } = useAguiState();
   if (!isRunning) return null;
+
+  // 阶段文案：优先用映射表里的中文名，否则把 snake_case 简单转成中文友好形式
+  const stageText = currentStage
+    ? (STAGE_LABELS[currentStage] ??
+        `正在执行：${currentStage.replace(/_/g, ' ').toLowerCase()}`)
+    : null;
+
   return (
-    <div className="text-muted-foreground mx-auto mb-1.5 flex w-full max-w-2xl items-center gap-2 px-1 text-[11px]">
-      <Loader2 className="h-3 w-3 animate-spin" />
-      <span>正在生成回复…</span>
-      <span className="text-muted-foreground/60">（可点击下方 ⏹ 停止）</span>
+    <div
+      className="border-primary/20 bg-primary/5 text-foreground mx-auto mb-2 flex w-full max-w-2xl animate-pulse items-center gap-2 rounded-lg border px-3 py-1.5 text-xs"
+      role="status"
+      aria-live="polite"
+    >
+      <Loader2 className="text-primary h-3.5 w-3.5 animate-spin" />
+      <span className="font-medium">{stageText ?? '正在生成回复'}</span>
+      {stageText && (
+        <span className="text-muted-foreground font-mono text-[10px] tracking-wider uppercase opacity-70">
+          · {currentStage}
+        </span>
+      )}
+      <span className="text-muted-foreground ml-auto">可点击输入框旁的 ⏹ 停止</span>
     </div>
   );
 };
@@ -497,6 +602,7 @@ const ComposerAction: FC = () => {
           className={cn(
             'bg-destructive text-destructive-foreground hover:bg-destructive/90 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
           )}
+          title="停止生成"
         >
           <SquareIcon className="h-4 w-4" fill="currentColor" />
         </ComposerPrimitive.Cancel>

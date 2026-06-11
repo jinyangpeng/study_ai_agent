@@ -30,7 +30,7 @@ import type {
 } from '@assistant-ui/react';
 import type { ReadonlyJSONValue } from 'assistant-stream/utils';
 
-import { useConfig, useSession, useSkill } from '@/context';
+import { useConfig, useSession, useSkill, useAguiState } from '@/context';
 import { runAguiAgent, runResultToContent } from './run';
 import type { AguiMessage } from './events';
 
@@ -122,7 +122,10 @@ function buildAssistantContent(
       toolName: c.toolName,
       args: c.args,
       argsText: c.argsText,
-      ...(c.result !== undefined ? { result: c.result } : {}),
+      // run.ts 已经把 result 归一化成 string（含 ''），这里原样透传。
+      // 不再做 "c.result !== undefined" 的条件 spread —— 否则后端
+      // 返回空结果时 part 会一直停在 running，UI 永远显示 "等待中"。
+      result: c.result as ReadonlyJSONValue | undefined,
     } satisfies ToolCallMessagePart;
   });
 }
@@ -177,6 +180,7 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
   const { config } = useConfig();
   const session = useSession();
   const skillCtx = useSkill();
+  const { setCurrentStage } = useAguiState();
 
   // 流式临时消息（assistant 占位 + 增量文本）
   const [streamingMessages, setStreamingMessages] = useState<ThreadMessageLike[]>([]);
@@ -269,6 +273,9 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
         history,
         abortSignal: ac.signal,
         onDebug: optsRef.current.onDebug,
+        onStageChange: (stepName) => {
+          setCurrentStage(stepName);
+        },
       });
 
       if (currentRun !== runIdRef.current) return;
@@ -319,6 +326,7 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
       if (currentRun === runIdRef.current) {
         setIsRunning(false);
         abortRef.current = null;
+        setCurrentStage(undefined);
       }
     }
   };

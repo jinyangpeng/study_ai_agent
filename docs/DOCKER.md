@@ -58,6 +58,19 @@ ZAI_API_KEY=xxx              # 智谱 GLM
 QIANFAN_API_KEY=xxx          # 千帆
 ```
 
+如果 Wikipedia / DuckDuckGo 在你环境连不上，可选地追加：
+
+```env
+# 给网络类工具开代理（默认全部直连；只对白名单里的 tool 临时切代理）
+TOOL_HTTP_PROXY=http://127.0.0.1:10809
+TOOL_PROXY_WHITELIST=wikipedia,duckduckgo_results_json
+```
+
+> 容器内的 `127.0.0.1` 指向容器自己。要走宿主机的代理，请用
+> `host.docker.internal:10809`（Docker Desktop / Docker Engine ≥ 20.10），
+> 或把代理容器加入同一个 compose 网络。详细机制见
+> [study_ai_agent/README.md - 网络类工具代理](../study_ai_agent/README.md#网络类工具代理)。
+
 ### 3.2 启动
 
 ```bash

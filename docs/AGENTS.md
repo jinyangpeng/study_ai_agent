@@ -281,6 +281,42 @@ curl http://localhost:8000/skeletons | jq '.skeletons[] | select(.id=="coding").
 # tool_count 应该 +1
 ```
 
+### 3.5 让新工具支持代理
+
+如果你的新 tool 需要发 HTTP（搜索、抓数据、调三方 API 等），参考
+[`src/core/tools/proxy.py`](../study_ai_agent/src/core/tools/proxy.py) 的设计：
+
+1. **包装 langchain tool 类**，把 `_run` / `_arun` 用
+   `with use_temp_env_proxy("<tool_name>"):` 包一层：
+
+   ```python
+   # src/core/tools/<your_tool>.py
+   from langchain_community.tools import BaseTool
+   from src.core.tools.proxy import use_temp_env_proxy
+
+   class _ProxyAwareMyTool(MyTool):
+       def _run(self, *args, **kwargs):
+           with use_temp_env_proxy("my_tool"):  # 必须与 .name 一致
+               return super()._run(*args, **kwargs)
+       async def _arun(self, *args, **kwargs):
+           with use_temp_env_proxy("my_tool"):
+               return await super()._arun(*args, **kwargs)
+   ```
+
+2. **拿到准确 tool name**：用 `MyTool(...).name`，确保白名单里写的字符串
+   和它完全一致（**注意大小写**和下划线 / 连字符）。`DuckDuckGoSearchResults`
+   的 `.name` 实际是 `"duckduckgo_results_json"` 而不是类名。
+
+3. **写好白名单示例**：在 [`study_ai_agent/.env.development`](../study_ai_agent/.env.development)
+   的 `TOOL_PROXY_WHITELIST` 注释里加上你的 tool 名（不要解开 —— 默认直连），
+   方便用户复制。
+
+4. **不强制走代理**：包 `use_temp_env_proxy` 之后，user 不配白名单时
+   `with` 块什么也不做，行为与父类完全一致（无额外开销）。
+
+完整实现可参考 [`src/core/tools/knowledge_tools.py`](../study_ai_agent/src/core/tools/knowledge_tools.py)
+或 [`src/core/tools/search_tools.py`](../study_ai_agent/src/core/tools/search_tools.py)。
+
 ---
 
 ## 4. 新增一个中间件

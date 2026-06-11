@@ -8,8 +8,10 @@
  *   - 不参与 assistant-ui 渲染树，完全独立
  *   - 通过 :func:`useAguiState` 拿到最新 state
  *   - 字段为空时折叠不显示，避免噪音
+ *   - 首次出现内容时自动展开（提升"状态可见性"），用户主动关掉后不再自动开
+ *   - 展开/收起带 transition 动画，宽度变化丝滑
  */
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CheckCircle2, FileText, ListChecks, Quote, Wrench, X, type LucideIcon } from 'lucide-react';
 
 import { useAguiState } from '@/context';
@@ -25,6 +27,8 @@ export interface StatePanelProps {
 
 export function StatePanel({ className, defaultOpen = false }: StatePanelProps) {
   const [open, setOpen] = useState(defaultOpen);
+  /** 标记用户是否"主动关过"，用于避免再次自动展开骚扰用户 */
+  const userDismissedRef = useRef<boolean>(false);
   const { state, resetState } = useAguiState();
 
   // 计算"是否有任何内容"
@@ -35,6 +39,39 @@ export function StatePanel({ className, defaultOpen = false }: StatePanelProps) 
     (state.code_changes && state.code_changes.length > 0) ||
     Boolean(state.final_answer);
 
+  // 首次出现内容（hasContent 从 false → true）时自动展开
+  // 触发条件：
+  //   - !userDismissedRef.current  用户没有主动关过
+  //   - !open                     当前是关着的（避免重复触发）
+  //   - hasContent                现在有内容了
+  useEffect(() => {
+    if (hasContent && !open && !userDismissedRef.current) {
+      setOpen(true);
+    }
+  }, [hasContent, open]);
+
+  // 状态被清空（hasContent 从 true → false）时重置 dismiss 标记：
+  // 新一轮 run 到来时用户应该能再看到自动展开。
+  // 用 ref 记住上一次的 hasContent
+  const prevHasContentRef = useRef<boolean>(hasContent);
+  useEffect(() => {
+    const prev = prevHasContentRef.current;
+    if (prev && !hasContent) {
+      // state 被清空（通常是新 session / 手动 resetState）
+      userDismissedRef.current = false;
+    }
+    prevHasContentRef.current = hasContent;
+  }, [hasContent]);
+
+  // 用户手动 toggle 时记录态度
+  const handleToggle = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      // 收起：标记"用户主动关过"，后续不再自动展开
+      userDismissedRef.current = true;
+    }
+  };
+
   if (!hasContent && !open) {
     return null; // 没有 state 且折叠时，不渲染折叠条
   }
@@ -42,10 +79,12 @@ export function StatePanel({ className, defaultOpen = false }: StatePanelProps) 
   return (
     <aside
       className={cn(
-        'border-border bg-card text-card-foreground flex shrink-0 flex-col border-l transition-all',
+        'border-border bg-card text-card-foreground flex shrink-0 flex-col border-l',
+        'transition-[width] duration-300 ease-out',
         open ? 'w-80' : 'w-9',
         className,
       )}
+      aria-expanded={open}
     >
       {open ? (
         <>
@@ -74,14 +113,19 @@ export function StatePanel({ className, defaultOpen = false }: StatePanelProps) 
                 size="icon"
                 variant="ghost"
                 title="收起"
-                onClick={() => setOpen(false)}
+                onClick={() => handleToggle(false)}
                 className="h-7 w-7"
               >
                 <X size={14} />
               </Button>
             </div>
           </div>
-          <div className="flex-1 space-y-4 overflow-y-auto p-3 text-sm">
+          <div
+            className={cn(
+              'flex-1 space-y-4 overflow-y-auto p-3 text-sm',
+              'animate-in fade-in slide-in-from-right-2 duration-200',
+            )}
+          >
             <PlanSection plan={state.plan} />
             <ReviewSection review={state.review} />
             <CodeChangesSection changes={state.code_changes} />
@@ -92,8 +136,11 @@ export function StatePanel({ className, defaultOpen = false }: StatePanelProps) 
       ) : (
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          className="text-muted-foreground hover:text-foreground hover:bg-muted/60 flex h-full w-full flex-col items-center justify-start gap-2 py-3 transition-colors"
+          onClick={() => handleToggle(true)}
+          className={cn(
+            'text-muted-foreground hover:text-foreground hover:bg-muted/60',
+            'flex h-full w-full flex-col items-center justify-start gap-2 py-3 transition-colors',
+          )}
           title="展开状态面板"
         >
           <ListChecks size={16} className="-rotate-90" />

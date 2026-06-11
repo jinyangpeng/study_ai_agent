@@ -23,6 +23,7 @@
 - **HITL 门禁**：对破坏性工具（`write_file` / `shell_exec` / `git_push` …）按 skill 配置 `approve` / `edit` / `reject` 决策集。
 - **AG-UI 协议挂载**：一个 `POST /` 端点跑多个已编译图，前端 SSE 流式消费事件。
 - **现代前端栈**：Vite + React 18 + TypeScript + Tailwind CSS + assistant-ui，多会话 / 暗色主题 / 快捷键 / 状态面板一应俱全。
+- **按工具白名单开代理**：`TOOL_PROXY_WHITELIST` + `TOOL_HTTP_PROXY` 即可让个别网络类工具（Wikipedia / DuckDuckGo）走代理，调用完立即还原 env，**不污染** LLM 供应商和其他直连工具。详见 [`study_ai_agent/README.md`](study_ai_agent/README.md#网络类工具代理)。
 
 ## 项目结构
 

@@ -34,6 +34,11 @@ interface AguiStateStore {
   resetState: () => void;
   /** 监听 setState 变化的订阅 id 集合（调试用） */
   version: number;
+
+  /** 当前正在执行的阶段（来自 STEP_STARTED） */
+  currentStage: string | undefined;
+  /** 写入当前阶段；传 undefined 表示阶段结束 */
+  setCurrentStage: (stage: string | undefined) => void;
 }
 
 const AguiStateContext = createContext<AguiStateStore | undefined>(undefined);
@@ -41,6 +46,7 @@ const AguiStateContext = createContext<AguiStateStore | undefined>(undefined);
 export function AguiStateProvider({ children }: { children: ReactNode }) {
   const [state, setStateRaw] = useState<AguiStateSnapshot>({});
   const [version, setVersion] = useState(0);
+  const [currentStage, setCurrentStageRaw] = useState<string | undefined>(undefined);
   const lastStateRef = useRef<AguiStateSnapshot>({});
 
   const setState = useCallback((next: AguiStateSnapshot) => {
@@ -60,11 +66,24 @@ export function AguiStateProvider({ children }: { children: ReactNode }) {
     lastStateRef.current = {};
     setStateRaw({});
     setVersion((v) => v + 1);
+    setCurrentStageRaw(undefined);
+  }, []);
+
+  const setCurrentStage = useCallback((stage: string | undefined) => {
+    setCurrentStageRaw(stage);
   }, []);
 
   const value = useMemo<AguiStateStore>(
-    () => ({ state, setState, patchState, resetState, version }),
-    [state, setState, patchState, resetState, version],
+    () => ({
+      state,
+      setState,
+      patchState,
+      resetState,
+      version,
+      currentStage,
+      setCurrentStage,
+    }),
+    [state, setState, patchState, resetState, version, currentStage, setCurrentStage],
   );
 
   return <AguiStateContext.Provider value={value}>{children}</AguiStateContext.Provider>;
