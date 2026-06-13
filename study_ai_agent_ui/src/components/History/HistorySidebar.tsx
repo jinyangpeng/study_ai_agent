@@ -35,10 +35,19 @@ export interface HistorySidebarProps {
   collapsed: boolean;
   /** 折叠切换回调 */
   onToggleCollapsed?: () => void;
+  /** 移动端是否打开（受控） */
+  mobileOpen?: boolean;
+  /** 移动端关闭回调 */
+  onMobileClose?: () => void;
   className?: string;
 }
 
-export function HistorySidebar({ collapsed, className }: HistorySidebarProps) {
+export function HistorySidebar({
+  collapsed,
+  mobileOpen = false,
+  onMobileClose,
+  className,
+}: HistorySidebarProps) {
   const session = useSession();
   const skill = useSkill();
   const [query, setQuery] = useState('');
@@ -51,11 +60,26 @@ export function HistorySidebar({ collapsed, className }: HistorySidebarProps) {
 
   const grouped = useMemo(() => groupByDate(filtered), [filtered]);
 
+  // 移动端打开时禁止 body 滚动
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
+
   return (
     <aside
       className={cn(
         'border-border bg-card text-card-foreground flex shrink-0 flex-col border-r transition-all duration-200',
-        collapsed ? 'w-0 overflow-hidden border-r-0' : 'w-64',
+        // 桌面端：宽度受 collapsed 控制
+        'md:relative md:translate-x-0',
+        collapsed ? 'md:w-0 md:overflow-hidden md:border-r-0' : 'md:w-64',
+        // 移动端：固定在左侧、z-40，正常态滑出，open 时滑入
+        'fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] md:static',
+        mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0',
         className,
       )}
     >
@@ -64,6 +88,16 @@ export function HistorySidebar({ collapsed, className }: HistorySidebarProps) {
           <span>历史会话</span>
           <span className="text-muted-foreground text-xs">({session.sessions.length})</span>
         </div>
+        {/* 移动端：关闭按钮（桌面端不显示） */}
+        <button
+          type="button"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors md:hidden"
+          onClick={onMobileClose}
+          title="关闭"
+          aria-label="关闭历史会话列表"
+        >
+          <X size={14} />
+        </button>
       </div>
 
       {/* 新建 + 搜索 */}
@@ -115,7 +149,10 @@ export function HistorySidebar({ collapsed, className }: HistorySidebarProps) {
                     key={s.id}
                     sessionMeta={s}
                     active={s.id === session.activeId}
-                    onClick={() => session.switchTo(s.id)}
+                    onClick={() => {
+                      session.switchTo(s.id);
+                      onMobileClose?.();
+                    }}
                     onDelete={() => session.remove(s.id)}
                     onRename={(title) => session.rename(s.id, title)}
                   />

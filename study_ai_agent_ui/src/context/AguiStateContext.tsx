@@ -1,40 +1,27 @@
 /**
- * AG-UI 状态共享 Context
+ * AG-UI 状态共享 Context —— 精简版
  *
- * 后端通过 ``STATE_SNAPSHOT`` 事件推送的 plan / review / citations / code_changes
- * 会经由 :func:`useChatController` 写入这里的 store。聊天页面再通过
- * ``useAguiState`` 拿到最新状态，渲染到右侧状态面板中。
+ * 早期版本这里还存 ``state`` 快照给右侧 StatePanel 用。现在改造为：
+ *   - 状态（plan / review / citations / code_changes / final_answer）改为
+ *     **绑到每条 assistant message 的 ``metadata.custom.state``** 上
+ *     （见 :func:`useChatController`），每条消息拥有自己的 state；
+ *   - 本 context 只剩两个用途：``currentStage``（被 ``ComposerRunningBanner``
+ *     实时读取，stage 切换时 spinner 跟着变）。
  *
- * 为什么不直接用 assistant-ui 的 ``metadata.unstable_state``：
- *   1. 那个字段会绑定到某一条消息上、生命周期跟 message 走；
- *   2. 跨消息累积状态（plan → review → final_answer）不方便；
- *   3. 在独立面板中显示需要重新订阅。
- * 因此用这个独立的 React context。
+ * 这样切到多轮对话时，不同轮次的 plan / review 互不串扰；执行过程
+ * 也直接出现在对应那条 AI 消息里（见 ``MessageExecutionState``），不需要
+ * 再开一个侧栏。
  */
 import {
   createContext,
   useCallback,
   useContext,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
 
-import type { AguiStateSnapshot } from '@/lib/agui';
-
 interface AguiStateStore {
-  /** 最新的 state 快照 */
-  state: AguiStateSnapshot;
-  /** 写入最新快照 */
-  setState: (next: AguiStateSnapshot) => void;
-  /** 局部更新（不会清空已有字段） */
-  patchState: (patch: Partial<AguiStateSnapshot>) => void;
-  /** 清空 state（新会话时调用） */
-  resetState: () => void;
-  /** 监听 setState 变化的订阅 id 集合（调试用） */
-  version: number;
-
   /** 当前正在执行的阶段（来自 STEP_STARTED） */
   currentStage: string | undefined;
   /** 写入当前阶段；传 undefined 表示阶段结束 */
@@ -44,46 +31,15 @@ interface AguiStateStore {
 const AguiStateContext = createContext<AguiStateStore | undefined>(undefined);
 
 export function AguiStateProvider({ children }: { children: ReactNode }) {
-  const [state, setStateRaw] = useState<AguiStateSnapshot>({});
-  const [version, setVersion] = useState(0);
   const [currentStage, setCurrentStageRaw] = useState<string | undefined>(undefined);
-  const lastStateRef = useRef<AguiStateSnapshot>({});
-
-  const setState = useCallback((next: AguiStateSnapshot) => {
-    lastStateRef.current = next;
-    setStateRaw(next);
-    setVersion((v) => v + 1);
-  }, []);
-
-  const patchState = useCallback((patch: Partial<AguiStateSnapshot>) => {
-    const next = { ...lastStateRef.current, ...patch };
-    lastStateRef.current = next;
-    setStateRaw(next);
-    setVersion((v) => v + 1);
-  }, []);
-
-  const resetState = useCallback(() => {
-    lastStateRef.current = {};
-    setStateRaw({});
-    setVersion((v) => v + 1);
-    setCurrentStageRaw(undefined);
-  }, []);
 
   const setCurrentStage = useCallback((stage: string | undefined) => {
     setCurrentStageRaw(stage);
   }, []);
 
   const value = useMemo<AguiStateStore>(
-    () => ({
-      state,
-      setState,
-      patchState,
-      resetState,
-      version,
-      currentStage,
-      setCurrentStage,
-    }),
-    [state, setState, patchState, resetState, version, currentStage, setCurrentStage],
+    () => ({ currentStage, setCurrentStage }),
+    [currentStage, setCurrentStage],
   );
 
   return <AguiStateContext.Provider value={value}>{children}</AguiStateContext.Provider>;

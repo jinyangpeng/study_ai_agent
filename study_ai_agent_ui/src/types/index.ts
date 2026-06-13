@@ -9,8 +9,6 @@
 export interface AppConfig {
   /** 后端 API 基础地址 */
   apiBaseUrl: string;
-  /** 模拟模式：开启后不连接真实后端 */
-  mockMode: boolean;
   /** 默认智能体（skill）id，初始化时使用 */
   defaultSkill: string;
 }

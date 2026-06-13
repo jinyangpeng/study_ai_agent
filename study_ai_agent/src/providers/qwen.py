@@ -29,7 +29,7 @@ class QwenProvider(BaseModelProvider):
         return ChatOpenAI(
             # 默认 ``qwen-turbo`` 兼容 DashScope 兼容端点的可用列表。
             # 想要更强推理可手动传 ``qwen-plus`` / ``qwen-max``。
-            model=config.model_name or "qwen-turbo",
+            model=config.model_name or "qwen-plus-2025-07-14",
             api_key=settings.DASHSCOPE_API_KEY,
             # 优先级：ModelConfig.base_url（程序覆盖） > settings 默认（环境变量）
             base_url=config.base_url or settings.DASHSCOPE_BASE_URL,

@@ -10,9 +10,19 @@
  *   - 切换 session / 新建 session 都会重新挂载 runtime 的 messages
  *   - 取消、重新生成等操作都通过 ref 暴露给上层组件
  *
+ * 关键设计：每条 assistant message 拥有自己的 AG-UI state
+ *   - 老的实现把 STATE_SNAPSHOT 写进全局 AguiStateContext，由右侧
+ *     StatePanel 渲染 → 切会话 / 多轮时会"老 plan 串到新回答"的副作用；
+ *   - 现在的实现把 state 写到 message 的 ``metadata.custom.state`` 上：
+ *       - 流式阶段：``onStateSnapshot`` 回调把每次快照 patch 到 streaming
+ *         placeholder 的 metadata；
+ *       - 完成阶段：placeholder 与 final 消息 **共用同一个 id**，把
+ *         ``metadata.custom.state`` 一起带过去，UI 直接读 message 自带
+ *         state 渲染 plan / review / code_changes / citations。
+ *   - 副作用：每条消息独立 state，渲染组件也无须走 Context。
+ *
  * 设计要点：
- *   - 内部 executeRun 用 useEvent（ref 包装的稳定回调），不会让 adapter
- *     随每次 render 重建
+ *   - 内部 executeRun 用 ref 包装的稳定回调，不会让 adapter 随每次 render 重建
  *   - adapter 的 useMemo 依赖最小化：只依赖 messages + isRunning
  *   - 切换 session 时清空流式状态；持久化消息更新不会触发 abort
  */
@@ -32,7 +42,7 @@ import type { ReadonlyJSONValue } from 'assistant-stream/utils';
 
 import { useConfig, useSession, useSkill, useAguiState } from '@/context';
 import { runAguiAgent, runResultToContent } from './run';
-import type { AguiMessage } from './events';
+import type { AguiMessage, AguiStateSnapshot } from './events';
 
 type AssistantMessageContent = TextMessagePart | ToolCallMessagePart;
 
@@ -168,8 +178,6 @@ function toThreadMessage(m: ThreadMessageLike, idx: number): ThreadMessage {
 }
 
 export interface UseChatControllerOptions {
-  /** 当 run 结束时调用的回调（例如刷新 StatePanel） */
-  onState?: (snapshot: unknown) => void;
   /** 当 run 出现错误时调用 */
   onError?: (err: Error) => void;
   /** 调试日志 */
@@ -236,19 +244,43 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
   // -------------------------------------------------------------------
   // 内部：执行一次 run
   // -------------------------------------------------------------------
+  // 两种模式：
+  //   - 'append'      （默认）：把 userMessage 追加到 persistedMessages 后面，重跑
+  //   - 'regenerate'           ：重跑最后一条 assistant，但 baseMessages 不动
+  //                             （用于 assistant-ui 的 onReload：点"重新生成"覆盖上次结果）
+  type RunMode = 'append' | 'regenerate';
   const executeRunRef = useRef<
-    (userMessage: ThreadMessageLike) => Promise<void>
+    (userMessage: ThreadMessageLike, mode?: RunMode) => Promise<void>
   >(async () => {});
 
-  executeRunRef.current = async (userMessage: ThreadMessageLike) => {
+  executeRunRef.current = async (userMessage, mode = 'append') => {
     if (!activeId) return;
     const currentRun = ++runIdRef.current;
     setIsRunning(true);
 
-    // 1) 先把 user 消息写进 session —— 这样会话标题能立即用首条用户消息生成
-    //    同时 streaming 阶段出错时 user 消息也不会丢
-    const baseMessages = [...persistedMessages, userMessage];
-    session.setMessages(activeId, baseMessages);
+    // 1) 计算 baseMessages：
+    //   - 'append'：在尾部追加新的 user message
+    //   - 'regenerate'：去掉最后一条 assistant message（如果是），保留最后一条 user message
+    let baseMessages: ThreadMessageLike[];
+    if (mode === 'regenerate') {
+      // 找到最后一条 user / assistant 消息，截断到 user 末尾
+      let lastUserIdx = -1;
+      for (let i = persistedMessages.length - 1; i >= 0; i--) {
+        if (persistedMessages[i].role === 'user') {
+          lastUserIdx = i;
+          break;
+        }
+      }
+      if (lastUserIdx === -1) return; // 没有 user 消息可重发
+      baseMessages = persistedMessages.slice(0, lastUserIdx + 1);
+      // 写回 session —— 立刻把"老 assistant"隐藏，避免视觉上叠加两条
+      session.setMessages(activeId, baseMessages);
+    } else {
+      baseMessages = [...persistedMessages, userMessage];
+      // 把 user 消息写进 session —— 这样会话标题能立即用首条用户消息生成
+      // 同时 streaming 阶段出错时 user 消息也不会丢
+      session.setMessages(activeId, baseMessages);
+    }
 
     const history = messagesToAguiHistory(baseMessages);
     const threadId = activeId;
@@ -256,14 +288,38 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
     const apiBaseUrl = apiBaseUrlRef.current;
 
     const usedIds = new Set<string>();
-    persistedMessages.forEach((m) => m.id && usedIds.add(m.id));
+    baseMessages.forEach((m) => m.id && usedIds.add(m.id));
     userMessage.id && usedIds.add(userMessage.id);
 
     const placeholder = makeStreamingAssistant(usedIds);
     setStreamingMessages([placeholder]);
 
+    // 用 ref 缓存最新 state，避免 setStreamingMessages 闭包过期
+    const latestStateRef = useRefForRun<AguiStateSnapshot | null>(null);
     const ac = new AbortController();
     abortRef.current = ac;
+
+    // 流式 state 写入：把 placeholder 的 metadata.custom.state 更新到最新
+    const writeStateToStreaming = (snapshot: AguiStateSnapshot) => {
+      latestStateRef.current = snapshot;
+      const safeSnapshot = snapshot;
+      setStreamingMessages((prev) =>
+        prev.map((m) =>
+          m.id === placeholder.id
+            ? {
+                ...m,
+                metadata: {
+                  ...(m.metadata ?? {}),
+                  custom: {
+                    ...((m.metadata && m.metadata.custom) || {}),
+                    state: safeSnapshot,
+                  },
+                },
+              }
+            : m,
+        ),
+      );
+    };
 
     try {
       const result = await runAguiAgent({
@@ -276,35 +332,44 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
         onStageChange: (stepName) => {
           setCurrentStage(stepName);
         },
+        onStateSnapshot: writeStateToStreaming,
       });
 
       if (currentRun !== runIdRef.current) return;
 
-      if (result.finalState) {
-        optsRef.current.onState?.(result.finalState);
-      }
-
       const contentParts = buildAssistantContent(runResultToContent(result));
 
+      // placeholder 与 final 消息用同一个 id，metadata 一起带过去
       const finalAssistant: ThreadMessageLike = {
-        id: genId(),
+        id: placeholder.id,
         role: 'assistant',
         content: contentParts,
-        createdAt: new Date(),
+        createdAt: placeholder.createdAt ?? new Date(),
         status: { type: 'complete', reason: 'stop' },
+        metadata: {
+          ...(placeholder.metadata ?? {}),
+          custom: {
+            ...((placeholder.metadata && placeholder.metadata.custom) || {}),
+            // 优先用 run 返回的 finalState；流式阶段如果没收到（极少见），
+            // 回退到 ref 里缓存的最新值
+            state: result.finalState ?? latestStateRef.current ?? {},
+          },
+        },
       };
 
-      session.setMessages(activeId, [...persistedMessages, userMessage, finalAssistant]);
+      session.setMessages(activeId, [...baseMessages, finalAssistant]);
       setStreamingMessages([]);
     } catch (err) {
       if (currentRun !== runIdRef.current) return;
       const error = err instanceof Error ? err : new Error(String(err));
       if (error.name === 'AbortError') {
+        // 取消：保留 placeholder 的 metadata（可能携带部分 state），
+        // 状态标记为 cancelled
         const partial: ThreadMessageLike = {
           ...placeholder,
           status: { type: 'incomplete', reason: 'cancelled' },
         };
-        session.setMessages(activeId, [...persistedMessages, userMessage, partial]);
+        session.setMessages(activeId, [...baseMessages, partial]);
       } else {
         const errorMsg: ThreadMessageLike = {
           id: genId(),
@@ -318,7 +383,7 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
           createdAt: new Date(),
           status: { type: 'incomplete', reason: 'error' },
         };
-        session.setMessages(activeId, [...persistedMessages, userMessage, errorMsg]);
+        session.setMessages(activeId, [...baseMessages, errorMsg]);
         optsRef.current.onError?.(error);
       }
       setStreamingMessages([]);
@@ -360,10 +425,12 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
         await executeRun(userMsg);
       },
       onReload: async () => {
-        // 找到最后一条 user message，重发
+        // 找到最后一条 user message，重发；本次是"覆盖上次 assistant 结果"
+        // 而不是追加新消息 —— mode: 'regenerate' 会先把最后一条 assistant
+        // 截掉，再让新结果落到同一个 id 上。
         const lastUser = [...persistedMessages].reverse().find((m) => m.role === 'user');
         if (!lastUser) return;
-        await executeRun(lastUser);
+        await executeRunRef.current(lastUser, 'regenerate');
       },
       onCancel: async () => {
         abortRef.current?.abort();
@@ -422,4 +489,13 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
   );
 
   return { runtime, controller, isRunning, activeId };
+}
+
+// ---------------------------------------------------------------------------
+// 内部小工具：在一次 run 内部使用的 "受控 ref"
+// ---------------------------------------------------------------------------
+// 普通 useRef 不行（hook 规则不允许条件调用），所以做成一个普通工厂返回
+// { current } 形状的容器；这样可以在 executeRunRef.current 内部随便用。
+function useRefForRun<T>(initial: T): { current: T } {
+  return { current: initial };
 }

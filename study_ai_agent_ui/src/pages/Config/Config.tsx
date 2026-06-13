@@ -131,7 +131,7 @@ export default function Config() {
 
         <form
           onSubmit={handleSave}
-          className="bg-card border-border space-y-5 rounded-xl border p-6 shadow-sm"
+          className="bg-card border-border space-y-5 rounded-xl border p-4 shadow-sm sm:p-6"
         >
           {/* API 基础地址 */}
           <div className="space-y-1.5">
@@ -146,38 +146,6 @@ export default function Config() {
             <p className="text-muted-foreground text-xs">
               后端 API 服务地址（同时作为健康检查与 AG-UI 端点的 baseURL）
             </p>
-          </div>
-
-          {/* 模拟模式 */}
-          <div className="bg-muted/30 flex items-center justify-between rounded-lg border p-4">
-            <div>
-              <label className="text-sm font-medium">模拟模式</label>
-              <p className="text-muted-foreground text-xs">
-                使用模拟数据进行测试，不连接真实后端（仅离线 / 演示使用）
-              </p>
-            </div>
-            <label className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center">
-              <input
-                type="checkbox"
-                className="peer sr-only"
-                checked={formData.mockMode}
-                onChange={(e) => handleChange('mockMode', e.target.checked)}
-              />
-              <span
-                className={cn(
-                  'absolute inset-0 rounded-full transition-colors',
-                  formData.mockMode
-                    ? 'bg-primary'
-                    : 'bg-input',
-                )}
-              />
-              <span
-                className={cn(
-                  'bg-background absolute top-0.5 h-5 w-5 rounded-full shadow transition-transform',
-                  formData.mockMode ? 'translate-x-5' : 'translate-x-0.5',
-                )}
-              />
-            </label>
           </div>
 
           {/* 默认骨架 */}

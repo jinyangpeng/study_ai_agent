@@ -25,13 +25,25 @@ GET   /skeletons    - 列出可用的 skill（AG-UI 选择器用）
 POST  /api/chat     - 旧的同步聊天（方便 curl 测试）
 GET   /             - AG-UI 健康
 POST  /             - AG-UI 运行端点（SSE 事件流）
+
+SSE 事件过滤
+------------
+LangChain 1.x 的 ``create_agent(response_format=Plan/Review)`` 会在图里
+额外注册一个**合成**的 tool call（tool name 就是 Pydantic 类名 ``Plan`` /
+``Review``），用于把 LLM 的输出强约束成结构化 JSON。``ag-ui-langgraph`` 会
+把这次合成调用作为普通 ``TOOL_CALL_*`` 事件转发到客户端，结果就是：
+前端 UI 多出"一个工具 + 永远空 result"的噪音块（实际数据已经走
+``STATE_SNAPSHOT`` 的 ``state.review`` / ``state.plan`` 推给前端）。
+我们在 :func:`_filter_structured_output_tool_events` 里把这种合成 tool
+调用的全部相关事件 (``TOOL_CALL_START/ARGS/END/RESULT``) 屏蔽掉，让协议
+流更干净。
 """
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import logging
 from functools import lru_cache
-from typing import Any
+from typing import Any, AsyncIterator
 
 from ag_ui.core.events import RunErrorEvent
 from ag_ui.core.types import RunAgentInput
@@ -83,6 +95,61 @@ def _compiled_graph_for(skill_id: str):
         )
     skill = registry[skill_id]
     return skill, build_graph(skill)
+
+
+# ---------------------------------------------------------------------------
+# SSE 事件过滤
+# ---------------------------------------------------------------------------
+# LangChain 1.x 的 ``create_agent(response_format=Plan/Review)`` 会在子图里
+# 注册一个**合成**的 tool call：tool name = Pydantic 类名（"Plan" / "Review"），
+# args = Pydantic 字段 JSON。这是为了把 LLM 的输出强约束成结构化 JSON，
+# 实际数据流向是 ``state.plan`` / ``state.review``（由 ``STATE_SNAPSHOT``
+# 事件推到前端），**不**走 ``TOOL_CALL_RESULT``。
+#
+# ``ag-ui-langgraph`` 不区分"合成 tool"和"用户 tool"，会把所有 tool call
+# 都按普通 tool 流出来。这导致前端 UI 多出"一个工具名 + 永远空 result"
+# 的噪音块（args 长得很像 Plan / Review JSON，result 永远为空）。
+#
+# 我们的策略：维护一个 ``blocked_tool_call_ids`` 集合，TOOL_CALL_START 命中
+# 内部白名单时把 id 加进去；之后所有引用该 id 的事件全部丢弃。
+_STRUCTURED_OUTPUT_TOOL_NAMES: frozenset[str] = frozenset({"Plan", "Review"})
+
+
+async def _filter_structured_output_tool_events(
+    events: AsyncIterator[Any],
+) -> AsyncIterator[Any]:
+    """把 LangChain 合成结构化输出产生的 tool call 事件屏蔽掉。
+
+    命中规则：``TOOL_CALL_START.tool_call_name in {Plan, Review}``。
+    之后该 tool_call_id 对应的 ``TOOL_CALL_ARGS`` / ``TOOL_CALL_END`` /
+    ``TOOL_CALL_RESULT`` 一并跳过。其它事件原样透传。
+    """
+    blocked: set[str] = set()
+    async for event in events:
+        ev_type = getattr(event, "type", None)
+        if ev_type == "TOOL_CALL_START":
+            name = getattr(event, "tool_call_name", None)
+            tool_call_id = getattr(event, "tool_call_id", None)
+            if name in _STRUCTURED_OUTPUT_TOOL_NAMES and tool_call_id:
+                blocked.add(tool_call_id)
+                logger.debug(
+                    "filter structured-output tool call: name=%s id=%s",
+                    name,
+                    tool_call_id,
+                )
+                continue
+            yield event
+        elif ev_type in {
+            "TOOL_CALL_ARGS",
+            "TOOL_CALL_END",
+            "TOOL_CALL_RESULT",
+        }:
+            tool_call_id = getattr(event, "tool_call_id", None)
+            if tool_call_id in blocked:
+                continue
+            yield event
+        else:
+            yield event
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +243,11 @@ async def run_agui(payload: RunAgentInput, request: Request):
         # yield 一个 RUN_ERROR 事件。否则 SSE 流会被裸掐断，浏览器侧
         # 会收到 ERR_INCOMPLETE_CHUNKED_ENCODING / "network error"。
         try:
-            async for event in request_agent.run(payload):
+            raw_events = request_agent.run(payload)
+            # 过滤掉 LangChain ``create_agent(response_format=...)`` 产生的
+            # 合成 tool call（参见 :func:`_filter_structured_output_tool_events`）。
+            filtered = _filter_structured_output_tool_events(raw_events)
+            async for event in filtered:
                 yield encoder.encode(event)
         except Exception as exc:
             logger.exception("AG-UI run 异常，中断事件流")

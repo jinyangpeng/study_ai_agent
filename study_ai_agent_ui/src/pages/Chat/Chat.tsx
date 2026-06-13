@@ -3,44 +3,36 @@
  *
  * - 使用自定义 :func:`useChatController` 渲染消息流
  *   （基于 assistant-ui 的 ``useExternalStoreRuntime``，支持多会话）
- * - 通过 ``useAguiState`` + ``StatePanel`` 在右侧展示 plan / review / citations 等状态
+ * - 执行状态（plan / review / code_changes / citations）由每条 AI 消息
+ *   自带的 ``MessageExecutionState`` 内联展示（见
+ *   :file:`assistant-ui/message-execution-state.tsx`），不再使用右侧面板。
  * - 通过 ``ErrorToast`` 在聊天区顶部展示流式 run 中的错误提示
  */
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { ErrorToast, StatePanel, Thread } from '@/components/assistant-ui';
+import { ErrorToast, Thread } from '@/components/assistant-ui';
 import { useChatController } from '@/lib/agui';
 import { useAguiState } from '@/context';
 
 export default function Chat() {
-  const aguiState = useAguiState();
+  const { setCurrentStage } = useAguiState();
   const [chatError, setChatError] = useState<Error | null>(null);
 
-  // 把后端 STATE_SNAPSHOT 推给右侧面板
-  const onState = useCallback(
-    (snap: unknown) => aguiState.setState(snap as Parameters<typeof aguiState.setState>[0]),
-    [aguiState.setState],
-  );
-
-  // 错误来了：1) 显示顶部 toast；2) 在最终回答区也写一份（保留原行为）
-  const onError = useCallback(
-    (err: Error) => {
-      setChatError(err);
-      aguiState.patchState({ final_answer: `⚠️ ${err.message}` });
-    },
-    [aguiState.patchState],
-  );
+  // 错误来了：1) 显示顶部 toast；2) 通过 onError 把错误冒泡到 controller
+  const onError = useCallback((err: Error) => {
+    setChatError(err);
+  }, []);
 
   // 用 useMemo 包一层避免 options 引用频繁变化导致 controller 重建
-  const options = useMemo(() => ({ onState, onError }), [onState, onError]);
+  const options = useMemo(() => ({ onError }), [onError]);
   const { runtime, activeId } = useChatController(options);
 
-  // 切换会话时清空错误 + 右侧状态
+  // 切换会话时清空错误 + 重置当前 stage（避免 banner 残留上轮文案）
   useEffect(() => {
-    aguiState.resetState();
     setChatError(null);
-    // 只依赖 activeId，避免 aguiState 变化时无限循环
+    setCurrentStage(undefined);
+    // 只依赖 activeId，避免 setCurrentStage 变化时无限循环
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
@@ -59,7 +51,6 @@ export default function Chat() {
           <Thread className="flex-1" />
         </AssistantRuntimeProvider>
       </div>
-      <StatePanel />
     </div>
   );
 }

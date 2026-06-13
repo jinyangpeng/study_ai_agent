@@ -18,12 +18,23 @@ export interface UseThemeResult {
   isDark: boolean;
 }
 
+/**
+ * 主题切换
+ *
+ * 实现：往 ``<html>`` 上加/去 ``dark`` class —— 这是 ``tailwind.config.js`` 里
+ * ``darkMode: 'class'`` 配套的唯一正确做法。早期版本用 ``data-theme``
+ * 属性，但 CSS 变量定义在 ``.dark`` 作用域下，结果主题不生效。
+ */
 export function useTheme(): UseThemeResult {
   const [theme, setTheme] = useState<Theme>(resolveInitialTheme);
 
   useEffect(() => {
     const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(THEME_STORAGE_KEY, theme);
     }

@@ -40,6 +40,7 @@ export default function Layout({ children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const { config } = useConfig();
   const skill = useSkill();
   const session = useSession();
@@ -159,11 +160,19 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </aside>
 
-      {/* 移动端遮罩 */}
+      {/* 移动端遮罩 —— 左侧导航抽屉 */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/30 md:hidden"
           onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* 移动端遮罩 —— 历史会话抽屉（z-30，比导航低避免互相干扰） */}
+      {mobileHistoryOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/30 md:hidden"
+          onClick={() => setMobileHistoryOpen(false)}
         />
       )}
 
@@ -172,7 +181,8 @@ export default function Layout({ children }: LayoutProps) {
         <HistorySidebar
           collapsed={historyCollapsed}
           onToggleCollapsed={() => setHistoryCollapsed((v) => !v)}
-          className="hidden md:flex"
+          mobileOpen={mobileHistoryOpen}
+          onMobileClose={() => setMobileHistoryOpen(false)}
         />
       )}
 
@@ -185,8 +195,17 @@ export default function Layout({ children }: LayoutProps) {
           onToggleMobileMenu={() => setMobileMenuOpen((v) => !v)}
           pageTitle={currentNav?.label ?? 'AI 助手'}
           onNewChat={() => session.createNew(skill.currentSkill)}
-          onToggleHistory={() => setHistoryCollapsed((v) => !v)}
+          onToggleHistory={() => {
+            // 桌面端：折叠/展开侧边栏；移动端：打开/关闭抽屉
+            if (window.matchMedia('(min-width: 768px)').matches) {
+              setHistoryCollapsed((v) => !v);
+            } else {
+              setMobileHistoryOpen((v) => !v);
+            }
+          }}
           historyCollapsed={historyCollapsed}
+          // 顶部面包屑切 agent 与侧边栏共用同一套逻辑
+          onSelectSkill={handleSkillClick}
         />
 
         <main className="flex-1 overflow-hidden">{children}</main>

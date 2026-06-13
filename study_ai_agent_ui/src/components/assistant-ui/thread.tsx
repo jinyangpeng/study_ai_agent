@@ -3,14 +3,18 @@
  *
  * 封装 assistant-ui 的 ThreadPrimitive 集合，用 Tailwind 做样式。
  * 设计参照 shadcn/ui 官方示例 + AI Studio 风格：渐变欢迎区、quick prompt 卡片、
- * 消息操作行（复制 / 重新生成 / 反馈）。
+ * 消息操作行（复制 / 重新生成）。
  *
  * 生成期 UI 设计
  * --------------
- * - AI 消息气泡：内容为空 + running → 显示思考点（ThinkingDots）；有内容 → Markdown
+ * - AI 消息气泡（思考过程 → 结果 顺序）：
+ *     1. MessageExecutionState：内联在每条 AI 消息里，渲染 plan / review /
+ *        code_changes / citations；运行中默认展开，完成后默认收起，可手动展开。
+ *     2. 文本 / 工具调用：内容为空 + running → 显示思考点（ThinkingDots）；
+ *        有内容 → Markdown + ToolFallback。
  * - Tool 调用：args 已就绪但 result 未到 → 显示"调用中…"loader
+ *   （注：后端会过滤掉 Plan / Review 等 LangChain 内部结构化输出合成工具）
  * - Composer 顶部：醒目 banner 提示"正在生成"，含 cancel 引导
- * - StatePanel：state 首次出现内容时自动展开，用户手动关掉后不再自动开
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -29,8 +33,6 @@ import {
   RefreshCw,
   SendHorizontalIcon,
   SquareIcon,
-  ThumbsDown,
-  ThumbsUp,
   Sparkles,
   Code2,
   Compass,
@@ -44,12 +46,14 @@ import {
   Globe,
   ListChecks,
   MessageSquare,
+  User,
   type LucideIcon,
 } from 'lucide-react';
 import type { FC } from 'react';
 
 import { MarkdownText } from './markdown-text';
 import { ToolFallback } from './tool-fallback';
+import { MessageExecutionState } from './message-execution-state';
 import { Button } from './ui/button';
 import { useSkill, useAguiState } from '@/context';
 import { cn } from '@/lib/utils';
@@ -126,17 +130,18 @@ const ThreadWelcome: FC = () => {
     : FALLBACK_QUICK_PROMPTS;
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-8 px-4 py-10 text-center">
+    <div className="mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-6 px-2 py-8 text-center sm:gap-8 sm:px-4 sm:py-10">
       {/* 品牌区 */}
-      <div className="flex flex-col items-center gap-4">
-        <div className="from-primary to-primary/70 text-primary-foreground flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg">
-          <Sparkles size={28} />
+      <div className="flex flex-col items-center gap-3 sm:gap-4">
+        <div className="from-primary to-primary/70 text-primary-foreground flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg sm:h-16 sm:w-16">
+          <Sparkles size={24} className="sm:hidden" />
+          <Sparkles size={28} className="hidden sm:block" />
         </div>
         <div className="flex flex-col gap-1">
-          <h1 className="text-foreground text-2xl font-semibold tracking-tight">
+          <h1 className="text-foreground text-xl font-semibold tracking-tight sm:text-2xl">
             你好，欢迎使用 Study AI Agent
           </h1>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground px-2 text-xs leading-relaxed sm:text-sm">
             当前智能体：
             <span className="text-foreground font-medium">
               {skill.current?.name ?? skill.currentSkill}
@@ -148,7 +153,7 @@ const ThreadWelcome: FC = () => {
       </div>
 
       {/* Quick prompts —— 由后端 skill 声明，跟当前 agent 绑定 */}
-      <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
         {prompts.map((qp, idx) => (
           <QuickPrompt
             key={`${skill.currentSkill}-${idx}-${qp.prompt}`}
@@ -290,24 +295,36 @@ const ThinkingDots: FC = () => (
 const UserMessage: FC = () => {
   const createdAt = useMessage((s) => s.createdAt);
   return (
-    <MessagePrimitive.Root className="group/user relative mb-5 grid w-full max-w-2xl auto-rows-auto grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 py-1">
-      <div className="bg-muted text-foreground col-start-2 max-w-[80%] rounded-2xl rounded-br-md px-4 py-2.5 break-words whitespace-pre-wrap shadow-sm">
-        <MessageParts text />
-        <div className="text-muted-foreground/80 mt-1 flex justify-end">
-          <MessageTimestamp date={createdAt} />
+    <MessagePrimitive.Root className="group/user relative mb-5 flex w-full items-end justify-end gap-2 py-1">
+      {/* 内容列 —— 靠右，最大宽度 80% / sm 2xl，小屏考虑头像宽度 */}
+      <div className="flex min-w-0 max-w-[calc(100%-3rem)] flex-col items-end sm:max-w-2xl">
+        <div className="bg-muted text-foreground rounded-2xl rounded-tr-md px-4 py-2.5 break-words whitespace-pre-wrap shadow-sm">
+          <MessageParts text />
+          <div className="text-muted-foreground/80 mt-1 flex justify-end">
+            <MessageTimestamp date={createdAt} />
+          </div>
         </div>
+
+        {/* hover 时显示编辑按钮 —— assistant-ui 自带 */}
+        <MessagePrimitive.If user>
+          <div className="text-muted-foreground mt-1 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover/user:opacity-100">
+            <ActionBarPrimitive.Edit
+              className="hover:bg-muted hover:text-foreground inline-flex h-6 items-center gap-1 rounded px-1.5 text-[10px] transition-colors"
+              title="编辑"
+            >
+              <span>编辑</span>
+            </ActionBarPrimitive.Edit>
+          </div>
+        </MessagePrimitive.If>
       </div>
-      {/* hover 时显示编辑按钮（assistant-ui 自带） */}
-      <MessagePrimitive.If user>
-        <div className="text-muted-foreground col-start-2 mr-1 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover/user:opacity-100">
-          <ActionBarPrimitive.Edit
-            className="hover:bg-muted hover:text-foreground inline-flex h-6 items-center gap-1 rounded px-1.5 text-[10px] transition-colors"
-            title="编辑"
-          >
-            <span>编辑</span>
-          </ActionBarPrimitive.Edit>
-        </div>
-      </MessagePrimitive.If>
+
+      {/* 用户头像 —— 蓝色渐变 + User 图标，靠右 */}
+      <div
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm"
+        aria-hidden
+      >
+        <User size={16} />
+      </div>
     </MessagePrimitive.Root>
   );
 };
@@ -342,13 +359,16 @@ const AssistantMessage: FC = () => {
   const isRunning = useMessage((s) => s.status?.type === 'running');
 
   return (
-    <MessagePrimitive.Root className="group/assist relative mb-5 grid w-full max-w-2xl auto-rows-auto grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 py-1">
-      <div className="from-primary to-primary/70 text-primary-foreground col-start-1 row-span-2 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br text-xs font-semibold shadow-sm">
+    <MessagePrimitive.Root className="group/assist relative mb-5 flex w-full items-start justify-start gap-2 py-1">
+      {/* AI 头像 —— 靠左 */}
+      <div className="from-primary to-primary/70 text-primary-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-semibold shadow-sm">
         AI
       </div>
-      <div className="text-foreground col-start-2 min-w-0 max-w-[80%] break-words">
+
+      {/* 内容列 —— 靠左，最大宽度 80% / sm 2xl */}
+      <div className="flex min-w-0 max-w-[calc(100%-3rem)] flex-1 flex-col sm:max-w-2xl">
         <MessagePrimitive.If assistant>
-          <MessageErrorContent />
+          <AssistantMessageBody />
         </MessagePrimitive.If>
 
         {/* 时间戳 + 生成中状态 */}
@@ -361,24 +381,30 @@ const AssistantMessage: FC = () => {
             </span>
           )}
         </div>
-      </div>
 
-      {/* 操作行：复制 / 重新生成 / 反馈 */}
-      <div className="col-start-2 mt-1.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/assist:opacity-100">
-        <MessagePrimitive.If assistant>
-          <AssistantActions />
-        </MessagePrimitive.If>
+        {/* 操作行：复制 / 重新生成 / 反馈 */}
+        <div className="mt-1.5 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/assist:opacity-100">
+          <MessagePrimitive.If assistant>
+            <AssistantActions />
+          </MessagePrimitive.If>
+        </div>
       </div>
     </MessagePrimitive.Root>
   );
 };
 
 /**
- * 错误消息：从 useMessage 读 status 判定
+ * AI 消息主体
  *
- * chat-controller 写入错误消息时 status 是 { type: 'incomplete', reason: 'error' }。
+ * 顺序（满足"过程在结果之前"的产品要求）：
+ *   1. MessageExecutionState —— 后端 plan/review/code_changes/citations 内联展示
+ *      （运行中默认展开，完成后默认收起，可手动展开看完整过程）
+ *   2. ThinkingDots / MessageParts —— 文本与工具调用
+ *      （内容为空 + running 时显示思考点，否则渲染实际内容）
+ *
+ * 错误态：独立的红色边框 + ⚠ 文本，与正常消息区分。
  */
-const MessageErrorContent: FC = () => {
+const AssistantMessageBody: FC = () => {
   const isError = useMessage((s): boolean => {
     const st = s.status;
     return st?.type === 'incomplete' && 'reason' in st && st.reason === 'error';
@@ -386,33 +412,33 @@ const MessageErrorContent: FC = () => {
   const hasContent = useHasMessageContent();
   const isRunning = useMessage((s) => s.status?.type === 'running');
 
-  return (
-    <div
-      className={cn(
-        'rounded-md',
-        isError &&
-          'border-destructive/40 bg-destructive/5 text-destructive border px-3 py-2',
-      )}
-      data-error={isError ? 'true' : undefined}
-    >
-      {/* 关键改进：内容为空 + running 时显示思考点；否则正常渲染 */}
-      {isRunning && !hasContent && !isError ? (
-        <ThinkingDots />
-      ) : (
+  if (isError) {
+    return (
+      <div
+        className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border px-3 py-2"
+        data-error="true"
+      >
         <MessageParts text tools />
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md">
+      {/* 1) 执行过程 —— 内联在消息里，运行中展开、完成后收起 */}
+      <MessageExecutionState />
+      {/* 2) 思考点 / 实际内容 */}
+      {isRunning && !hasContent ? <ThinkingDots /> : <MessageParts text tools />}
     </div>
   );
 };
 
 const AssistantActions: FC = () => {
   const [copied, setCopied] = useState(false);
-  const [feedback, setFeedback] = useState<'positive' | 'negative' | null>(null);
 
-  // 重置 feedback（消息变化时）
+  // 重置 copied（消息变化时）
   useEffect(() => {
     setCopied(false);
-    setFeedback(null);
   }, []);
 
   return (
@@ -440,52 +466,9 @@ const AssistantActions: FC = () => {
         <RefreshCw size={12} />
         <span>重新生成</span>
       </ActionBarPrimitive.Reload>
-
-      <div className="mx-1 h-3 w-px bg-border" />
-
-      <FeedbackButton
-        kind="positive"
-        active={feedback === 'positive'}
-        onActivate={() => setFeedback((v) => (v === 'positive' ? null : 'positive'))}
-      />
-      <FeedbackButton
-        kind="negative"
-        active={feedback === 'negative'}
-        onActivate={() => setFeedback((v) => (v === 'negative' ? null : 'negative'))}
-      />
     </div>
   );
 };
-
-function FeedbackButton({
-  kind,
-  active,
-  onActivate,
-}: {
-  kind: 'positive' | 'negative';
-  active: boolean;
-  onActivate: () => void;
-}) {
-  const Icon = kind === 'positive' ? ThumbsUp : ThumbsDown;
-  const Component =
-    kind === 'positive'
-      ? ActionBarPrimitive.FeedbackPositive
-      : ActionBarPrimitive.FeedbackNegative;
-  return (
-    <Component
-      className={cn(
-        'inline-flex h-7 w-7 items-center justify-center rounded transition-colors',
-        active
-          ? 'bg-primary/10 text-primary'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-      )}
-      title={kind === 'positive' ? '赞' : '踩'}
-      onClick={onActivate}
-    >
-      <Icon size={12} />
-    </Component>
-  );
-}
 
 const EditComposer: FC = () => (
   <ComposerPrimitive.Root className="bg-muted/40 my-4 flex w-full max-w-2xl flex-col gap-2 rounded-lg border p-2">

@@ -4,6 +4,6 @@
 export { Thread, ThreadScrollToBottom } from './thread';
 export { MarkdownText } from './markdown-text';
 export { ToolFallback } from './tool-fallback';
-export { StatePanel } from './state-panel';
+export { MessageExecutionState } from './message-execution-state';
 export { ErrorToast } from './error-toast';
 export { Button } from './ui/button';

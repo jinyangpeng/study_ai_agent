@@ -5,7 +5,6 @@ const STORAGE_KEY = 'study-ai-agent:config';
 
 export const DEFAULT_CONFIG: AppConfig = {
   apiBaseUrl: 'http://localhost:8000',
-  mockMode: false,
   defaultSkill: 'default',
 };
 
@@ -15,7 +14,11 @@ export function loadConfig(): AppConfig {
   if (!raw) return { ...DEFAULT_CONFIG };
   try {
     const parsed = JSON.parse(raw) as Partial<AppConfig>;
-    return { ...DEFAULT_CONFIG, ...parsed };
+    // 白名单 pick：丢弃已废弃字段（如旧的 mockMode），避免脏数据渗透
+    return {
+      apiBaseUrl: typeof parsed.apiBaseUrl === 'string' ? parsed.apiBaseUrl : DEFAULT_CONFIG.apiBaseUrl,
+      defaultSkill: typeof parsed.defaultSkill === 'string' ? parsed.defaultSkill : DEFAULT_CONFIG.defaultSkill,
+    };
   } catch {
     return { ...DEFAULT_CONFIG };
   }

@@ -43,6 +43,12 @@ export interface AguiRunInput {
    * 用于在 Composer banner 中显示"当前正在做 X"。
    */
   onStageChange?: (stepName: string | undefined) => void;
+  /**
+   * STATE_SNAPSHOT 事件触发，传入最新 state 快照（覆盖式）。
+   * 典型用途：把 state 实时绑到 streaming message 的 metadata 上，
+   * 这样 UI 可以按"每条消息一份 state"的维度渲染，无需走全局 context。
+   */
+  onStateSnapshot?: (snapshot: AguiStateSnapshot) => void;
 }
 
 export interface AguiTextBlock {
@@ -180,7 +186,10 @@ export async function runAguiAgent(input: AguiRunInput): Promise<AguiRunResult> 
           break;
         }
         case 'STATE_SNAPSHOT': {
-          finalState = (event as StateSnapshotEvent).snapshot as AguiStateSnapshot;
+          const e = event as StateSnapshotEvent;
+          finalState = e.snapshot as AguiStateSnapshot;
+          // 实时把 state 推给调用方；不阻塞解析，调用方用 ref 收集即可
+          input.onStateSnapshot?.(finalState);
           break;
         }
         case 'STEP_STARTED': {

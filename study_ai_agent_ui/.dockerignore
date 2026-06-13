@@ -37,4 +37,3 @@ yarn-error.log*
 # Docker 自身
 Dockerfile
 .dockerignore
-nginx.conf
