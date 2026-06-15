@@ -9,7 +9,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-OUT = Path(r"c:\Workspace\Development\Study\study_ai_agent\debug-executor-node-panic")
+OUT = Path(r"c:\Workspace\Development\Study\study_ai_agent\debug-execute-node-panic")
 OUT.mkdir(parents=True, exist_ok=True)
 
 console_logs: list[dict] = []

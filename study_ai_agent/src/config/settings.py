@@ -71,6 +71,25 @@ class Settings(BaseSettings):
     TOOL_HTTP_PROXY: str = os.getenv("TOOL_HTTP_PROXY", "") or os.getenv("HTTP_PROXY", "")
     TOOL_PROXY_WHITELIST: str = os.getenv("TOOL_PROXY_WHITELIST", "")
 
+    # ---- PostgreSQL（langgraph checkpointer 后端）----
+    # 连接信息：默认指本地开发库。生产环境通过环境变量覆盖。
+    # 单机开发：POSTGRES_HOST=localhost
+    # 容器编排：POSTGRES_HOST=postgres  （docker compose 服务名）
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
+    POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "postgres")
+    POSTGRES_SCHEMA: str = os.getenv("POSTGRES_SCHEMA", "langgraph_checkpoints")
+    # 连接池（AsyncConnectionPool）
+    POSTGRES_POOL_MIN_SIZE: int = int(os.getenv("POSTGRES_POOL_MIN_SIZE", "2"))
+    POSTGRES_POOL_MAX_SIZE: int = int(os.getenv("POSTGRES_POOL_MAX_SIZE", "10"))
+    POSTGRES_POOL_TIMEOUT: float = float(os.getenv("POSTGRES_POOL_TIMEOUT", "30"))
+    # checkpointer 后端选择：
+    #   postgres —— AsyncPostgresSaver + 连接池（生产推荐）
+    #   memory   —— InMemorySaver（本地无 DB 时回退，仅 dev）
+    CHECKPOINTER_BACKEND: str = os.getenv("CHECKPOINTER_BACKEND", "postgres")
+
 
 @lru_cache
 def get_settings() -> Settings:

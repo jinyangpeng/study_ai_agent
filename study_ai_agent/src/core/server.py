@@ -1,13 +1,16 @@
+# -*- coding: utf-8 -*-
 """FastAPI server，把 LangGraph agent 通过 AG-UI 协议暴露出去。
 
 架构
-----
+-----
 * **运行时**   ：每个 skill 一个 LangGraph ``CompiledStateGraph``
                  （见 :mod:`src.core.graph`）
 * **协议层**   ：AG-UI。事件是 ``ag-ui-protocol`` 中定义的 Pydantic 模型；
                  LangGraph -> AG-UI 事件翻译在官方的
                  ``ag-ui-langgraph`` 包里
 * **传输**     ：FastAPI + SSE（``StreamingResponse`` + ``EventEncoder``）。
+* **持久化**   ：PostgreSQL checkpointer（见 :mod:`src.core.checkpointer`），
+                 由 FastAPI lifespan 在启动 / 关闭时分别 setup / aclose。
 
 skill 调度
 ----------
@@ -41,19 +44,51 @@ LangChain 1.x 的 ``create_agent(response_format=Plan/Review)`` 会在图里
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+# ---------------------------------------------------------------------------
+# Windows 兼容：psycopg3 async 必须用 SelectorEventLoop。
+# ``asyncio.set_event_loop_policy`` 在 Python 3.16 将被移除，
+# 推荐用 uvicorn ``loop_factory=``（见 ``src/__main__.py``）。
+# 这里保留 policy 调用作为防御层 —— 任何不走 uvicorn ``loop_factory``
+# 的入口（直接 ``python -m src.core.server``、测试、jupyter）依然能
+# 拿到正确的 loop。warnings filter 把 3.14 的 DeprecationWarning 吞掉。
+# ---------------------------------------------------------------------------
+import sys as _sys  # noqa: E402
+if _sys.platform == "win32":  # pragma: no cover
+    import asyncio as _asyncio  # noqa: E402
+    import warnings as _warnings  # noqa: E402
+
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore", DeprecationWarning)
+        try:
+            _asyncio.set_event_loop_policy(
+                _asyncio.WindowsSelectorEventLoopPolicy()
+            )
+        except AttributeError:
+            pass
+    del _warnings
+    del _asyncio
+del _sys
+
 import logging
 from functools import lru_cache
 from typing import Any, AsyncIterator
+
+from contextlib import asynccontextmanager
 
 from ag_ui.core.events import RunErrorEvent
 from ag_ui.core.types import RunAgentInput
 from ag_ui.encoder import EventEncoder
 from ag_ui_langgraph import LangGraphAgent
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
 
+from src.core.checkpointer import (
+    _extract_text,
+    checkpointer_factory,
+)
 from src.core.graph import build_graph
 from src.core.skill import SkillModule
 
@@ -66,7 +101,7 @@ AGENT_NAME = "study_ai_agent"
 # skill 注册表
 # ---------------------------------------------------------------------------
 # 懒加载，避免在包 import 时形成硬依赖循环。
-# （core.server -> skills -> core.nodes -> core.skill 这条链本身没问题，
+# （core.server -> skills -> core.strategies -> core.skill 这条链本身没问题，
 # 但在这里 eager import skills 会让任何 import ``src.core.server`` 的代码
 # 都把全部 skill 模块拉进来 —— 我们保持懒加载。）
 def _get_skill_registry() -> dict[str, SkillModule]:
@@ -155,7 +190,24 @@ async def _filter_structured_output_tool_events(
 # ---------------------------------------------------------------------------
 # FastAPI 应用
 # ---------------------------------------------------------------------------
-app = FastAPI(title="LangChain Agent API")
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """启动时初始化 checkpointer（开池 + 建表），关闭时优雅关池。
+
+    失败策略：DB 不可达时直接抛 RuntimeError，让进程退出码 !=0。
+    在容器编排里会被 kubelet / docker 自动重启；可观测性也更好。
+    """
+    await checkpointer_factory.setup()
+    try:
+        yield
+    finally:
+        await checkpointer_factory.aclose()
+
+
+app = FastAPI(
+    title="LangChain Agent API",
+    lifespan=_lifespan,
+)
 
 # CORS：本地开发默认全开。生产环境把 ``"*"`` 替换成显式的 allowlist 即可。
 app.add_middleware(
@@ -270,16 +322,187 @@ async def run_agui(payload: RunAgentInput, request: Request):
 
 
 # ---------------------------------------------------------------------------
+# Thread 历史 / 列表 / 删除 —— 配合 PostgreSQL checkpointer
+# ---------------------------------------------------------------------------
+# AG-UI 协议本身主要规定 ``POST /`` 的 SSE 事件流；thread 历史是 LangGraph
+# 生态的常见扩展（参考 ``langgraph-sdk`` 的 ``/threads/{id}/state``）。
+# 这里我们沿用同样的 REST 风格，但响应体**用 AG-UI 形状的 messages**：
+#
+#     { "id": "...", "role": "user|assistant|system|tool",
+#       "content": "...", "tool_call_id": "...?", "tool_calls": [...]? }
+#
+# 字段名走 ``snake_case``（与 ``ag-ui-protocol`` 的 alias 兼容，前端按
+# ``populate_by_name`` 也能解析）。tool_calls 用 OpenAI 形状，方便前端
+# 直接喂给 assistant-ui 的 ToolCallMessagePart。
+# ---------------------------------------------------------------------------
+
+_LC_TO_AGUI_ROLE: dict[str, str] = {
+    "HumanMessage": "user",
+    "AIMessage": "assistant",
+    "AIMessageChunk": "assistant",
+    "SystemMessage": "system",
+    "ToolMessage": "tool",
+    "FunctionMessage": "tool",
+}
+
+
+def _lc_message_to_agui(msg: BaseMessage, idx: int) -> dict[str, Any]:
+    """LangChain ``BaseMessage`` → AG-UI 形状 message。
+
+    字段语义与 ``ag-ui-protocol`` 的 ``UserMessage`` / ``AssistantMessage``
+    / ``ToolMessage`` 对齐；不识别的消息类归到 ``user``，避免丢消息。
+    """
+    cls_name = type(msg).__name__
+    role = _LC_TO_AGUI_ROLE.get(cls_name, "user")
+
+    out: dict[str, Any] = {
+        # AG-UI 的 message 必须有 id；BaseMessage 默认没 id 时用 idx 兜底
+        "id": getattr(msg, "id", None) or f"m-{idx}",
+        "role": role,
+        "content": _extract_text(msg.content),
+    }
+
+    # tool_calls：AIMessage 上的 OpenAI 风格
+    if hasattr(msg, "tool_calls") and msg.tool_calls:
+        out["tool_calls"] = [
+            {
+                "id": tc.get("id", ""),
+                "type": "function",
+                "function": {
+                    "name": tc.get("name", ""),
+                    # AG-UI ``ToolCall.function.arguments`` 是 str（JSON 字符串）
+                    "arguments": (
+                        tc.get("args")
+                        if isinstance(tc.get("args"), str)
+                        else _safe_json_dumps(tc.get("args", {}))
+                    ),
+                },
+            }
+            for tc in msg.tool_calls
+        ]
+
+    # tool result message：tool_call_id 必填
+    if role == "tool" and getattr(msg, "tool_call_id", None):
+        out["tool_call_id"] = msg.tool_call_id
+
+    if getattr(msg, "name", None):
+        out["name"] = msg.name
+
+    return out
+
+
+def _safe_json_dumps(obj: Any) -> str:
+    import json
+
+    try:
+        return json.dumps(obj, ensure_ascii=False, default=str)
+    except Exception:
+        return "{}"
+
+
+def _state_for_response(channel_values: dict[str, Any]) -> dict[str, Any]:
+    """把 state 中的 Pydantic 模型 / 不可 JSON 化的字段规整成 dict。
+
+    AG-UI 前端 ``STATE_SNAPSHOT`` 事件的 ``snapshot`` 字段是 ``Record<string, unknown>``，
+    没法直接吃 Pydantic 实例；这里 ``model_dump()`` 一下。
+    """
+    out: dict[str, Any] = {}
+    for k, v in channel_values.items():
+        if k == "messages":
+            continue  # messages 单独走 messages 字段
+        if hasattr(v, "model_dump"):
+            try:
+                out[k] = v.model_dump()
+                continue
+            except Exception:
+                pass
+        try:
+            import json
+
+            json.dumps(v, default=str)
+            out[k] = v
+        except Exception:
+            out[k] = str(v)
+    return out
+
+
+@app.get("/threads")
+async def list_threads(
+    limit: int = Query(100, ge=1, le=500),
+) -> dict[str, Any]:
+    """列出 checkpointer 中所有 thread（最新 checkpoint 视角）。
+
+    响应::
+
+        {
+          "threads": [
+            {"thread_id", "checkpoint_id", "ts",
+             "message_count", "first_user_message"}, ...
+          ],
+          "count": int
+        }
+    """
+    threads = await checkpointer_factory.list_threads(limit=limit)
+    return {"threads": threads, "count": len(threads)}
+
+
+@app.get("/threads/{thread_id}/state")
+async def get_thread_state(thread_id: str) -> dict[str, Any]:
+    """读取指定 thread 的最新 checkpoint state。
+
+    响应：AG-UI 形状的 messages + LangGraph state 字段（plan / review / ...）。
+
+    Returns 404 当 thread 不存在（从未写过 checkpoint）。
+    """
+    state = await checkpointer_factory.get_thread_state(thread_id)
+    if state is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Thread not found: {thread_id}",
+        )
+
+    messages = [
+        _lc_message_to_agui(m, idx)
+        for idx, m in enumerate(state["messages"])
+    ]
+    return {
+        "thread_id": thread_id,
+        "checkpoint_id": state["checkpoint_id"],
+        "ts": state["ts"],
+        "messages": messages,
+        "state": _state_for_response(state["channel_values"]),
+    }
+
+
+@app.delete("/threads/{thread_id}")
+async def delete_thread(thread_id: str) -> dict[str, Any]:
+    """删除一个 thread 的全部 checkpoint + writes（与前端删除会话语义对齐）。
+
+    Returns 404 当 thread 不存在。
+    """
+    deleted = await checkpointer_factory.delete_thread(thread_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Thread not found: {thread_id}",
+        )
+    return {"deleted": True, "thread_id": thread_id}
+
+
+# ---------------------------------------------------------------------------
 # 健康检查 & 旧端点
 # ---------------------------------------------------------------------------
 @app.get("/health")
 async def health() -> dict:
-    """健康检查。"""
+    """健康检查（含 checkpointer / DB 状态）。"""
+    cp_status = await checkpointer_factory.ping()
+    overall_ok = cp_status.get("ok", False)
     return {
-        "status": "ok",
+        "status": "ok" if overall_ok else "degraded",
         "agent": {"name": AGENT_NAME},
         "protocol": "ag-ui",
         "default_skill": _default_skill_id(),
+        "checkpointer": cp_status,
     }
 
 
@@ -324,6 +547,26 @@ async def chat(req: ChatRequest) -> ChatResponse:
 # 入口
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
+    import asyncio
+    import selectors
+    import sys
+
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    def _loop_factory() -> asyncio.AbstractEventLoop:
+        # Windows 上 psycopg3 async 必须用 SelectorEventLoop；
+        # uvicorn 默认会装 ProactorEventLoop，需要手动注入。
+        if sys.platform == "win32":
+            return asyncio.SelectorEventLoop(selectors.SelectSelector())
+        return asyncio.DefaultEventLoop()
+
+    from src.config.settings import settings
+
+    uvicorn.run(
+        "src.core.server:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        log_level=settings.LOG_LEVEL.lower(),
+        # uvicorn 0.30+ 的 ``loop`` 可直接接收 loop factory
+        loop=_loop_factory,
+    )

@@ -7,7 +7,7 @@
 - src.providers  : 模型供应商适配器（DeepSeek / Qwen / Qianfan / ZhipuAI / ...）
 - src.core       : 共享的智能体内核
     * schemas/state/skill  - 每个智能体共用的类型化契约
-    * graph/nodes/server   - PPAS（Planner -> Executor -> Reviewer -> Aggregator）图
+    * graph/nodes/server   - Plan-Execute-Review-Act 图（plan / execute / review / act）
     * model_factory        - 多供应商模型选择
     * middleware           - 横切关注点（安全、HITL、日志、...）
     * tools                - 按类别聚合的可复用工具集

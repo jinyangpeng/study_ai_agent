@@ -1,8 +1,8 @@
 """SkillModule - 智能体 / 技能的插件契约。
 
-一个 *skill* 是一组自包含的行为，由共享的核心图（planner -> executor ->
-reviewer -> aggregator）驱动。核心图不关心任何具体智能体；它只消费 skill
-通过本 Protocol 暴露的内容。
+一个 *skill* 是一组自包含的行为，由共享的 Plan-Execute-Review-Act 核心图
+（plan -> execute -> review -> act）驱动。核心图不关心任何具体智能体；
+它只消费 skill 通过本 Protocol 暴露的内容。
 
 为什么用 Protocol 而不是 ABC？
 * 这是表达"只要有这些属性就 OK"的 Pythonic 方式。
@@ -48,29 +48,29 @@ class SkillModule(Protocol):
         """一句话说明这个 skill 擅长什么。"""
         ...
 
-    # ---- 各节点的 prompt ----
+    # ---- Plan-Execute-Review-Act 各节点的 prompt ----
     @property
-    def planner_prompt(self) -> str:
-        """planner 子 agent 的 system prompt（输出 :class:`Plan`）。"""
+    def plan_prompt(self) -> str:
+        """plan 子 agent 的 system prompt（输出 :class:`Plan`）。"""
         ...
 
     @property
-    def executor_prompt(self) -> str:
-        """executor 子 agent 的 system prompt（带工具集）。"""
+    def execute_prompt(self) -> str:
+        """execute 子 agent 的 system prompt（带工具集）。"""
         ...
 
     @property
-    def reviewer_prompt(self) -> str:
-        """reviewer 子 agent 的 system prompt（输出 :class:`Review`）。"""
+    def review_prompt(self) -> str:
+        """review 子 agent 的 system prompt（输出 :class:`Review`）。"""
         ...
 
     # ---- 工具集 ----
     @property
     def tools(self) -> list["BaseTool"]:
-        """executor 子 agent 可用的工具。
+        """execute 子 agent 可用的工具。
 
-        planner 和 reviewer 子 agent 永远以 ``tools=[]`` 运行；
-        只有 executor 会拿到 skill 的工具集。
+        plan 和 review 子 agent 永远以 ``tools=[]`` 运行；
+        只有 execute 会拿到 skill 的工具集。
         """
         ...
 
@@ -94,7 +94,7 @@ class SkillModule(Protocol):
         ...
 
     def transform_final_answer(self, raw: str) -> str:
-        """在 aggregator 的输出发给前端之前做后处理。默认是恒等。
+        """在 act 节点的输出发给前端之前做后处理。默认是恒等。
         可以用这个给最终答案加 skill 专属的页脚、格式化引用、去掉 diff 块。"""
         ...
 

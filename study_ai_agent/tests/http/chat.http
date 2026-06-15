@@ -38,7 +38,7 @@ POST {{host}}/api/chat
 Content-Type: application/json
 
 {
-  "message": "用一句话解释 src/core/nodes.py 里 make_executor_node 的作用",
+  "message": "用一句话解释 src/core/nodes.py 里 make_execute_node 的作用",
   "thread_id": "demo-coding-1",
   "skill": "coding"
 }

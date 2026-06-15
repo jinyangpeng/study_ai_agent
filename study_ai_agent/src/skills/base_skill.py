@@ -2,7 +2,7 @@
 
 不是 Protocol 的强制要求 —— 智能体可以直接实现
 :mod:`src.core.skill` 里的 :class:`SkillModule`，不需要继承任何东西。
-本类只是把"4 个 prompt 全都默认 None，让调用方挑着覆盖"这种最常见的
+本类只是把"3 个 prompt 全都默认 None，让调用方挑着覆盖"这种最常见的
 写法做成现成 API。
 """
 # -*- coding: utf-8 -*-
@@ -15,17 +15,17 @@ if TYPE_CHECKING:
 
 
 class BaseSkill:
-    """智能体的默认实现 —— 4 个 prompt 都是 ``None``，调用方按需覆盖。"""
+    """智能体的默认实现 —— 3 个 prompt 都是 ``None``，调用方按需覆盖。"""
 
     # ---- AG-UI manifest ----
     id: str = ""
     name: str = ""
     description: str = ""
 
-    # ---- 每个节点的 prompt ----
-    planner_prompt: str = ""
-    executor_prompt: str = ""
-    reviewer_prompt: str = ""
+    # ---- Plan-Execute-Review-Act 每个节点的 prompt ----
+    plan_prompt: str = ""
+    execute_prompt: str = ""
+    review_prompt: str = ""
 
     # ---- 前端欢迎区的快捷提示卡（按当前 skill 个性化） ----
     # 列表里每条 = 一张卡。空 list = 前端用通用默认。
@@ -33,7 +33,7 @@ class BaseSkill:
 
     @property
     def tools(self) -> list["BaseTool"]:
-        """executor 可用的工具集。
+        """execute 节点可用的工具集。
 
         默认空。子 skill 用 :class:`property` 装饰来注入真实工具。
         """

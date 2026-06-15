@@ -68,26 +68,35 @@ export const Thread: FC<{ className?: string }> = ({ className }) => (
       className,
     )}
   >
-    <ThreadPrimitive.Viewport className="aui-thread-viewport flex h-full flex-col items-stretch overflow-y-scroll px-4 pt-8">
-      <ThreadPrimitive.Empty>
-        <ThreadWelcome />
-      </ThreadPrimitive.Empty>
+    {/* 滚动容器：内部用一个 ``w-full`` 容器把消息、欢迎区、滚回最新按钮
+        都"撑满可用宽度"。原本写成 ``max-w-2xl mx-auto`` 在 2xl 屏（>= 1024px）
+        外会产生大量左右留白，且隐藏侧栏后内容也不会扩展 —— 现在去掉
+        ``max-w-2xl``，让 wrapper 跟随 viewport 自适应；消息冒泡由内层
+        ``max-w-[calc(100%-3rem)]``（减去 32px 头像 + 8px gap）兜底。
 
-      <ThreadPrimitive.Messages
-        components={{
-          UserMessage,
-          EditComposer,
-          AssistantMessage,
-        }}
-      />
+        对应的 Composer 容器（见下方）也同步去掉 max-w-2xl，宽度跟消息对齐。 */}
+    <ThreadPrimitive.Viewport className="aui-thread-viewport flex h-full flex-col items-stretch overflow-y-scroll pt-8">
+      <div className="flex w-full flex-col items-stretch px-14 sm:px-16 lg:px-18">
+        <ThreadPrimitive.Empty>
+          <ThreadWelcome />
+        </ThreadPrimitive.Empty>
 
-      {/* 浮动在右下角的"回到最新"按钮 —— 同时承担自动滚动触发职责 */}
-      <div className="sticky bottom-2 mt-2 mr-1 flex justify-end">
-        <ThreadScrollToBottom />
+        <ThreadPrimitive.Messages
+          components={{
+            UserMessage,
+            EditComposer,
+            AssistantMessage,
+          }}
+        />
+
+        {/* 浮动在右下角的"回到最新"按钮 —— 跟消息一起撑满宽度，依然靠右 */}
+        <div className="sticky bottom-2 mt-2 flex justify-end">
+          <ThreadScrollToBottom />
+        </div>
       </div>
     </ThreadPrimitive.Viewport>
 
-    <div className="sticky bottom-0 mt-auto flex w-full max-w-2xl flex-col items-stretch self-center px-4 pb-4">
+    <div className="sticky bottom-0 mt-auto flex w-full flex-col items-stretch self-center px-20 pb-20 sm:px-22 lg:px-24">
       <Composer />
     </div>
   </ThreadPrimitive.Root>
@@ -296,36 +305,67 @@ const UserMessage: FC = () => {
   const createdAt = useMessage((s) => s.createdAt);
   return (
     <MessagePrimitive.Root className="group/user relative mb-5 flex w-full items-end justify-end gap-2 py-1">
-      {/* 内容列 —— 靠右，最大宽度 80% / sm 2xl，小屏考虑头像宽度 */}
-      <div className="flex min-w-0 max-w-[calc(100%-3rem)] flex-col items-end sm:max-w-2xl">
-        <div className="bg-muted text-foreground rounded-2xl rounded-tr-md px-4 py-2.5 break-words whitespace-pre-wrap shadow-sm">
+      {/* 内容列 —— 靠右，最大宽度为父容器减去头像 32px + 8px gap
+          （``calc(100%-3rem)``）；不再加 ``sm:max-w-2xl``，让气泡
+          跟随 wrapper 撑满可用宽度。 */}
+      <div className="flex min-w-0 max-w-[calc(100%-3rem)] flex-col items-end">
+        <div className="bg-muted text-foreground rounded-2xl rounded-tr-md px-4 py-2.5 break-words shadow-sm">
           <MessageParts text />
           <div className="text-muted-foreground/80 mt-1 flex justify-end">
             <MessageTimestamp date={createdAt} />
           </div>
         </div>
 
-        {/* hover 时显示编辑按钮 —— assistant-ui 自带 */}
+        {/* hover 时显示复制 / 编辑 —— assistant-ui 自带 */}
         <MessagePrimitive.If user>
-          <div className="text-muted-foreground mt-1 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover/user:opacity-100">
-            <ActionBarPrimitive.Edit
-              className="hover:bg-muted hover:text-foreground inline-flex h-6 items-center gap-1 rounded px-1.5 text-[10px] transition-colors"
-              title="编辑"
-            >
-              <span>编辑</span>
-            </ActionBarPrimitive.Edit>
-          </div>
+          <UserActions />
         </MessagePrimitive.If>
       </div>
 
-      {/* 用户头像 —— 蓝色渐变 + User 图标，靠右 */}
+      {/* 用户头像 —— 蓝色渐变 + User 图标，靠右 + 顶部对齐（多行消息时不跟着内容底） */}
       <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm"
+        className="flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-sm"
         aria-hidden
       >
         <User size={16} />
       </div>
     </MessagePrimitive.Root>
+  );
+};
+
+/** 用户消息底部的操作行：复制 + 编辑，仅在 hover 时显示。 */
+const UserActions: FC = () => {
+  const [copied, setCopied] = useState(false);
+
+  // 消息切换时清掉 copied 状态
+  useEffect(() => {
+    setCopied(false);
+  }, []);
+
+  return (
+    <div className="text-muted-foreground mt-1 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover/user:opacity-100">
+      <ActionBarPrimitive.Copy
+        className={cn(
+          'hover:bg-muted hover:text-foreground inline-flex h-6 items-center gap-1 rounded px-1.5 text-[10px] transition-colors',
+          copied && 'text-green-600 dark:text-green-400',
+        )}
+        copiedDuration={1800}
+        onClick={() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
+        }}
+        title="复制"
+      >
+        {copied ? <Check size={12} /> : <Copy size={12} />}
+        <span>{copied ? '已复制' : '复制'}</span>
+      </ActionBarPrimitive.Copy>
+      <ActionBarPrimitive.Edit
+        className="hover:bg-muted hover:text-foreground inline-flex h-6 items-center gap-1 rounded px-1.5 text-[10px] transition-colors"
+        title="编辑"
+      >
+        <span>编辑</span>
+      </ActionBarPrimitive.Edit>
+    </div>
   );
 };
 
@@ -365,8 +405,8 @@ const AssistantMessage: FC = () => {
         AI
       </div>
 
-      {/* 内容列 —— 靠左，最大宽度 80% / sm 2xl */}
-      <div className="flex min-w-0 max-w-[calc(100%-3rem)] flex-1 flex-col sm:max-w-2xl">
+      {/* 内容列 —— 靠左，宽度跟 wrapper 一起撑满（减去左侧头像 32px + 8px gap） */}
+      <div className="flex min-w-0 max-w-[calc(100%-3rem)] flex-1 flex-col">
         <MessagePrimitive.If assistant>
           <AssistantMessageBody />
         </MessagePrimitive.If>
@@ -543,7 +583,7 @@ const ComposerRunningBanner: FC = () => {
 const Composer: FC = () => (
   <>
     <ComposerRunningBanner />
-    <ComposerPrimitive.Root className="bg-background border-border focus-within:border-ring/50 shadow-sm hover:shadow-md mx-auto flex w-full max-w-2xl flex-col rounded-2xl border p-2 transition-all">
+    <ComposerPrimitive.Root className="bg-background border-border focus-within:border-ring/50 shadow-sm hover:shadow-md mx-auto flex w-full flex-col rounded-2xl border p-2 transition-all">
       <ComposerPrimitive.Input
         placeholder="发消息... (Ctrl/⌘+Enter 发送)"
         className="text-foreground placeholder:text-muted-foreground max-h-40 min-h-10 w-full flex-1 resize-none border-none bg-transparent px-3 py-2 text-sm outline-none focus:outline-none"

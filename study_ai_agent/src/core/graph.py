@@ -1,72 +1,51 @@
-"""图构建器 - 共享的 LangGraph 框架，按 skill 参数化。
+"""图构建器 - 通过策略工厂按 skill 编译 LangGraph。
 
-PPAS 图对每个 skill 都是一样的::
+策略（Plan-Execute-Review-Act / 未来的 ReAct / Reflection）由
+:mod:`src.core.strategies` 提供。这里只负责：
 
-        START
-          │
-          ▼
-      planner
-          │
-          ▼
-      executor
-          │
-          ▼
-      reviewer
-          │              │
-          ▼              ▼
-      aggregator       planner    （revise 循环回来，由 LangGraph 的
-          │                          recursion_limit 控制上限）
-          ▼
-         END
+1. 调用 :func:`src.core.strategies.get` 拿到当前策略实例
+2. 用 ``model_factory`` 解析 chat model
+3. 注入 ``checkpointer_factory.saver``
+4. 调 ``strategy.build_graph(skill, model, checkpointer)`` 拿编译结果
 
-每个 skill 变化的是 *prompt* 和 *工具集*（以及 executor 上的 *HITL 策略*）。
-本模块只暴露一个工厂 :func:`build_graph`，接受一个 :class:`SkillModule`
-返回编译好的 :class:`~langgraph.graph.state.CompiledStateGraph`。
+如果想给所有 skill 切换策略，**只**改策略注册表 / 配置即可，
+本文件不用动。
 """
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from src.core.checkpointer import checkpointer_factory
 from src.core.model_factory import model_factory
-from src.core.nodes import (
-    _route_after_review,
-    make_aggregator_node,
-    make_executor_node,
-    make_planner_node,
-    make_reviewer_node,
-)
 from src.core.skill import SkillModule
-from src.core.state import AgentState
+from src.core.strategies import get as get_strategy
+
+# 当前默认策略名。新策略加进来后可以通过 settings / skill.strategy 切换。
+DEFAULT_STRATEGY = "p_e_r_a"
 
 
-def build_graph(skill: SkillModule) -> CompiledStateGraph:
-    """为给定 skill 编译 PPAS 图。
+def build_graph(
+    skill: SkillModule,
+    strategy_name: str = DEFAULT_STRATEGY,
+) -> CompiledStateGraph:
+    """为给定 skill + 策略编译 LangGraph。
 
-    chat model 在编译时解析一次，四个子 agent 共享。如果要 per-node
-    用不同档位的模型，改 :mod:`src.core.nodes` 里的
-    :func:`model_factory.create_model` 调用即可。
+    Parameters
+    ----------
+    skill
+        当前 skill 模块。
+    strategy_name
+        策略名（必须已经在 :mod:`src.core.strategies` 注册过）。
+        默认 ``"p_e_r_a"``。所有 skill 共享一个 chat model + checkpointer。
     """
     model, _provider_name = model_factory.create_model()
-
-    g = StateGraph(AgentState)
-    g.add_node("planner", make_planner_node(skill, model))
-    g.add_node("executor", make_executor_node(skill, model))
-    g.add_node("reviewer", make_reviewer_node(skill, model))
-    g.add_node("aggregator", make_aggregator_node(skill))
-
-    g.add_edge(START, "planner")
-    g.add_edge("planner", "executor")
-    g.add_edge("executor", "reviewer")
-    g.add_conditional_edges(
-        "reviewer",
-        _route_after_review,
-        {"planner": "planner", "aggregator": "aggregator"},
+    strategy = get_strategy(strategy_name)
+    return strategy.build_graph(
+        skill=skill,
+        model=model,
+        checkpointer=checkpointer_factory.saver,
     )
-    g.add_edge("aggregator", END)
-    return g.compile(checkpointer=InMemorySaver())
 
 
-__all__ = ["build_graph"]
+__all__ = ["build_graph", "DEFAULT_STRATEGY"]

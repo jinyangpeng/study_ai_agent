@@ -108,13 +108,13 @@ make env-prod    # 创建 .env.production
                                              │  build_graph(skill)
                                              ▼
                        ┌─────── CompiledStateGraph (per skill, cached) ───┐
-   RunAgentInput ──▶   │  START → planner → executor → reviewer            │
-   (AG-UI POST /)      │                 ↑         │                       │
-                       │                 │     approve/revise               │
-                       │                 │         │   │                    │
-                       │                 └─────────┘   ▼                    │
-                       │                          aggregator → END           │
-                       └──────────────────────────────────────────────────┘
+   RunAgentInput ──▶   │  START → plan → execute → review                   │
+   (AG-UI POST /)      │                  ↑         │                       │
+                       │                  │     approve/revise              │
+                       │                  │         │   │                    │
+                       │                  └─────────┘   ▼                    │
+                       │                              act → END              │
+                       └────────────────────────────────────────────────────┘
                                              │
                                              ▼
                                 ag_ui_langgraph.LangGraphAgent
@@ -124,7 +124,7 @@ make env-prod    # 创建 .env.production
                             SSE (EventEncoder) → 前端 / 任何 AG-UI 客户端
 ```
 
-四个节点（`planner` / `executor` / `reviewer` / `aggregator`）都是通过 LangChain 1.x 的
+四个节点（`plan` / `execute` / `review` / `act`）都是通过 LangChain 1.x 的
 `create_agent(response_format=Plan/Review)` 构造的子 agent，**共用同一个 chat model**。
 中间件按 `src/core/middleware/__init__.py` 的顺序链式生效（Security → Context → … → Testing）。
 

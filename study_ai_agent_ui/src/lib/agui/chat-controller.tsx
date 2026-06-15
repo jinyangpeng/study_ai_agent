@@ -230,6 +230,9 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
   apiBaseUrlRef.current = config.apiBaseUrl;
   const skillRef = useRef(skillCtx.currentSkill);
   skillRef.current = skillCtx.currentSkill;
+  // session context 也用 ref 持稳，effect / executeRun 读最新值
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   // 只在切换 session 时清空 streaming。
   // 注意：不要把 persistedMessages 放进依赖，否则 executeRun 写入新消息时
@@ -240,6 +243,35 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
     abortRef.current = null;
     setIsRunning(false);
   }, [activeId]);
+
+  // 切到「本地缓存为空」的 session 时，去后端 checkpointer 拉历史
+  // —— 场景：
+  //   1) localStorage 被清掉 / 跨设备访问同一 thread_id
+  //   2) 后端先有 thread，前端再 import session 元数据
+  // 拉到后 setMessages 会自动触发 viewMessages 重新合并 + 渲染。
+  useEffect(() => {
+    if (!activeId) return;
+    if (persistedMessages.length > 0) return; // 本地有快照就不打扰后端
+    let cancelled = false;
+    (async () => {
+      const ok = await sessionRef.current.loadFromBackend(
+        activeId,
+        apiBaseUrlRef.current,
+      );
+      if (cancelled) return;
+      if (ok) {
+        optsRef.current.onDebug?.('history', {
+          source: 'backend',
+          threadId: activeId,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // persistedMessages.length 入依赖：后端拉到后 setMessages 会更新它，
+    // 此时 effect 重跑会被 length>0 守卫截断，不会重发请求。
+  }, [activeId, persistedMessages.length]);
 
   // -------------------------------------------------------------------
   // 内部：执行一次 run

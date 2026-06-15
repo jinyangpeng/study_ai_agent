@@ -49,7 +49,7 @@ ALL_MIDDLEWARES = (
     + TESTING_MIDDLEWARES        # 10. 仅测试用插桩
 )
 
-# ``BASE_MIDDLEWARES`` 是上面 *去掉* HITL 闸门的版本。skill 在 executor 构建
+# ``BASE_MIDDLEWARES`` 是上面 *去掉* HITL 闸门的版本。skill 在 execute 节点构建
 # 时各自 append 一个 :class:`HumanInTheLoopMiddleware`（用 skill 的 per-tool
 # 策略配置），所以 HITL 槽位是 per-skill 的，永远不会出现在共享 list 里。
 BASE_MIDDLEWARES = (

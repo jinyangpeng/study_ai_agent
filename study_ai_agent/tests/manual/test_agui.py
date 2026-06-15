@@ -73,7 +73,7 @@ async def test_agui(skill: str | None, message: str, thread_id: str, label: str)
 async def main():
     await test_agui(
         skill="coding",
-        message="用一句话解释 make_executor_node 的作用",
+        message="用一句话解释 make_execute_node 的作用",
         thread_id="agui-coding-1",
         label="AG-UI 编程骨架",
     )

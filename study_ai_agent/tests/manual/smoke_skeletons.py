@@ -77,27 +77,36 @@ def main() -> int:
             pass
 
     async def compile_both():
-        # Monkey-patch：``create_model`` 在 ``graph.build_graph`` 调用时才查。
-        original = graph_module.model_factory
-        graph_module.model_factory = type(
-            "FakeFactory", (), {"create_model": staticmethod(lambda _=None: (_FakeChatModel(), "fake"))}
-        )()
+        # 图编译时会 touch checkpointer_factory.saver，需要先 setup()。
+        # 内存后端 setup 是同步的，postgres 后端需要 DB 在线 —— 用
+        # ``CHECKPOINTER_BACKEND=memory`` 跑这个 smoke test 就行。
+        from src.core.checkpointer import checkpointer_factory
+
+        await checkpointer_factory.setup()
         try:
-            g_coding = build_graph(SKILL_REGISTRY["coding"])
-            g_research = build_graph(SKILL_REGISTRY["research"])
+            # Monkey-patch：``create_model`` 在 ``graph.build_graph`` 调用时才查。
+            original = graph_module.model_factory
+            graph_module.model_factory = type(
+                "FakeFactory", (), {"create_model": staticmethod(lambda _=None: (_FakeChatModel(), "fake"))}
+            )()
+            try:
+                g_coding = build_graph(SKILL_REGISTRY["coding"])
+                g_research = build_graph(SKILL_REGISTRY["research"])
+            finally:
+                graph_module.model_factory = original
+            nodes_c = sorted(g_coding.get_graph().nodes.keys())
+            nodes_r = sorted(g_research.get_graph().nodes.keys())
+            print(f"  coding   graph nodes: {nodes_c}")
+            print(f"  research graph nodes: {nodes_r}")
+            expected = sorted(
+                ["__start__", "plan", "execute", "review", "act", "__end__"]
+            )
+            assert nodes_c == nodes_r == expected
         finally:
-            graph_module.model_factory = original
-        nodes_c = sorted(g_coding.get_graph().nodes.keys())
-        nodes_r = sorted(g_research.get_graph().nodes.keys())
-        print(f"  coding   graph nodes: {nodes_c}")
-        print(f"  research graph nodes: {nodes_r}")
-        expected = sorted(
-            ["__start__", "planner", "executor", "reviewer", "aggregator", "__end__"]
-        )
-        assert nodes_c == nodes_r == expected
+            await checkpointer_factory.aclose()
 
     asyncio.run(compile_both())
-    print("[OK] both skills compile to identical PPAS topology")
+    print("[OK] both skills compile to identical Plan-Execute-Review-Act topology")
 
     print("--- FastAPI app ---")
     import src.core.server as srv

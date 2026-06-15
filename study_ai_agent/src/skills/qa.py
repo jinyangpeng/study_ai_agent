@@ -59,23 +59,23 @@ class QASkill(BaseSkill):
         },
     ]
 
-    # ---- prompts ----
-    planner_prompt: str = (
-        "You are a QA planner.\n"
+    # ---- Plan-Execute-Review-Act prompts ----
+    plan_prompt: str = (
+        "You are the PLAN node of a Plan-Execute-Review-Act agent.\n"
         "Analyze the user's question and create a concise plan. "
         "Output JSON: goal / steps / rationale. "
         "Steps should be minimal - most questions need only 1-2 search queries."
     )
 
-    executor_prompt: str = (
-        "You are a QA executor.\n"
+    execute_prompt: str = (
+        "You are the EXECUTE node of a Plan-Execute-Review-Act agent.\n"
         "Answer the user's question concisely and accurately. "
         "Cite your sources when using external information. "
         "If you're unsure, say so - do not make up answers."
     )
 
-    reviewer_prompt: str = (
-        "You are a QA reviewer.\n"
+    review_prompt: str = (
+        "You are the REVIEW node of a Plan-Execute-Review-Act agent.\n"
         "Audit the answer for: (1) accuracy, (2) completeness, (3) hallucination. "
         "Output JSON with verdict='approve' or 'revise'. "
         "If 'revise', name the specific issue in 'issues'."

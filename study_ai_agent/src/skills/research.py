@@ -4,7 +4,7 @@
 ------
 * Web 搜索、知识库、计算、实时信息查询、安全工具
 * **纯只读** - 不挂任何 FILE_TOOLS、SHELL_TOOLS、git 工具，
-  executor 不会修改工作区。
+  execute 节点不会修改工作区。
 
 HITL 策略
 ---------
@@ -67,24 +67,24 @@ class ResearchSkill(BaseSkill):
         },
     ]
 
-    # ---- prompts ----
-    planner_prompt: str = (
-        "You are a research planner.\n"
+    # ---- Plan-Execute-Review-Act prompts ----
+    plan_prompt: str = (
+        "You are the PLAN node of a Plan-Execute-Review-Act research agent.\n"
         "Turn the user's question into a research plan. Aim for 3-5 search queries\n"
         "that cover the topic from different angles (definition, evidence, counterpoint, recent updates).\n"
         "Output JSON: goal / steps / rationale. No tool calls."
     )
 
-    executor_prompt: str = (
-        "You are a research executor.\n"
+    execute_prompt: str = (
+        "You are the EXECUTE node of a Plan-Execute-Review-Act research agent.\n"
         "For every claim you make, cite the URL you got it from. Use the Citation schema.\n"
         "Prefer authoritative sources (official docs, papers, primary news). "
         "Quote the exact passage you relied on.\n"
         "When the search returns no relevant result, state that explicitly - do not invent."
     )
 
-    reviewer_prompt: str = (
-        "You are a research reviewer.\n"
+    review_prompt: str = (
+        "You are the REVIEW node of a Plan-Execute-Review-Act research agent.\n"
         "Audit the answer for: (1) unsupported claims, (2) circular citations, "
         "(3) missing counter-evidence, (4) staleness.\n"
         "Output JSON with verdict='approve' (publishable) or 'revise' (loop back).\n"

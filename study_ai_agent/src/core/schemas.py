@@ -24,28 +24,28 @@ from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
-# Planner
+# Plan 节点的结构化输出（Plan-Execute-Review-Act 架构的 P）
 # ---------------------------------------------------------------------------
 class PlanStep(BaseModel):
-    """planner 输出中的单个有序步骤。
+    """plan 节点输出中的单个有序步骤。
 
-    planner 不会 *执行* 任何东西 —— 它只描述 executor 应该做什么。
+    plan 不会 *执行* 任何东西 —— 它只描述 execute 应该做什么。
     保持 schema 声明式（不绑定具体的 tool call），让同一份 :class:`Plan`
-    既能驱动 LangChain executor 节点，也能驱动未来可能的 re-planning 循环。
+    既能驱动 LangChain execute 节点，也能驱动未来可能的 re-planning 循环。
     """
 
     id: str = Field(..., description="稳定的步骤标识（如 'step-1'）。")
-    description: str = Field(..., description="executor 应该做什么。")
+    description: str = Field(..., description="execute 应该做什么。")
     expected_output: str = Field(
         default="", description="这一步成功的标志是什么。"
     )
 
 
 class Plan(BaseModel):
-    """planner 的结构化输出。
+    """plan 节点的结构化输出。
 
-    由 planner 节点通过 ``create_agent(response_format=Plan)`` 产出，
-    流入 :attr:`AgentState.plan`，executor 节点就能直接拿到类型化对象，
+    由 plan 节点通过 ``create_agent(response_format=Plan)`` 产出，
+    流入 :attr:`AgentState.plan`，execute 节点就能直接拿到类型化对象，
     不用再次解析自由文本。
     """
 
@@ -57,21 +57,21 @@ class Plan(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Reviewer 子 agent 的结构化输出
+# Review 节点的结构化输出（Plan-Execute-Review-Act 架构的 R）
 # ---------------------------------------------------------------------------
 class Review(BaseModel):
-    """reviewer 的结构化输出。
+    """review 节点的结构化输出。
 
-    reviewer 的 verdict 驱动 reviewer 节点之后的那条条件边：
-    ``approve`` -> aggregator -> END，``revise`` -> 回 planner
+    review 的 verdict 驱动 review 节点之后的那条条件边：
+    ``approve`` -> act -> END，``revise`` -> 回 plan
     （由 LangGraph 的 ``recursion_limit`` 控制循环上限）。
     """
 
     verdict: Literal["approve", "revise"] = Field(
-        ..., description="'approve' 表示发布，'revise' 表示回 planner 重新规划。"
+        ..., description="'approve' 表示发布，'revise' 表示回 plan 重新规划。"
     )
     issues: list[str] = Field(
-        default_factory=list, description="executor 输出里发现的具体问题。"
+        default_factory=list, description="execute 输出里发现的具体问题。"
     )
     suggestions: list[str] = Field(
         default_factory=list, description="下一轮应该做的具体修改。"
@@ -82,9 +82,9 @@ class Review(BaseModel):
 # 智能体专属（可选）的输出
 # ---------------------------------------------------------------------------
 class Citation(BaseModel):
-    """由 *research* 智能体的 executor 产出的来源引用。
+    """由 *research* 智能体的 execute 节点产出的来源引用。
 
-    executor 在系统 prompt 的引导下，每引用一个 web 抓取的事实都会附上
+    execute 在系统 prompt 的引导下，每引用一个 web 抓取的事实都会附上
     :class:`Citation` 元数据。:class:`Citation` 对象流入
     :attr:`AgentState.citations`，作为侧信道数据暴露给 AG-UI 前端
     （例如 "References" 面板）。
@@ -97,11 +97,11 @@ class Citation(BaseModel):
 
 
 class CodeChange(BaseModel):
-    """由 *coding* 智能体的 executor 产出的文件编辑。
+    """由 *coding* 智能体的 execute 节点产出的文件编辑。
 
-    executor 在系统 prompt 的引导下，每调用一次 ``write_file`` /
-    ``edit_file`` 都会描述成一个 :class:`CodeChange` 条目，aggregator
-    据此可以渲染统一的 diff 摘要。
+    execute 在系统 prompt 的引导下，每调用一次 ``write_file`` /
+    ``edit_file`` 都会描述成一个 :class:`CodeChange` 条目，act
+    节点据此可以渲染统一的 diff 摘要。
     """
 
     file: str = Field(..., description="文件路径（相对仓库根）。")
