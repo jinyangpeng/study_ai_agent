@@ -31,6 +31,13 @@ class QASkill(BaseSkill):
         "纯只读，不会修改文件或执行命令。"
     )
 
+    # 走Reflection
+    strategy: str = "reflection"
+
+    # 走 PERA：先规划答案要点，再执行（纯推理），最后 review 修正 —— 适合
+    # 结构化、要点明确的问题。
+    strategy: str = "p_e_r_a"
+
     # ---- 前端欢迎区的快捷提示卡 ----
     quick_prompts: list[dict[str, str]] = [
         {

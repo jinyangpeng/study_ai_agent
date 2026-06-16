@@ -48,6 +48,20 @@ class SkillModule(Protocol):
         """一句话说明这个 skill 擅长什么。"""
         ...
 
+    # ---- 推理策略 ----
+    @property
+    def strategy(self) -> str:
+        """本 skill 使用的推理策略名（必须是 :mod:`src.core.strategies` 已注册的）。
+
+        ``build_graph(skill)`` 默认读这个字段挑策略；调用方也可以显式
+        传 ``strategy_name`` 覆盖（主要用于测试 / 临时切换）。
+
+        空字符串会被 :class:`BaseSkill` 的 ``__init_subclass__`` 在子类
+        import 时强制替换成 ``"p_e_r_a"``，再调 ``strategies.validate()``
+        校验 —— 拼错策略名会在**进程启动期** fail，不会拖到第一次请求。
+        """
+        ...
+
     # ---- Plan-Execute-Review-Act 各节点的 prompt ----
     @property
     def plan_prompt(self) -> str:
@@ -62,6 +76,46 @@ class SkillModule(Protocol):
     @property
     def review_prompt(self) -> str:
         """review 子 agent 的 system prompt（输出 :class:`Review`）。"""
+        ...
+
+    # ---- ReAct 策略的 prompt ----
+    @property
+    def react_prompt(self) -> str:
+        """ReAct 子 agent 的 system prompt（单节点，内置 thought / act / obs 循环）。
+
+        空字符串表示"用策略层默认 prompt"，skill 可以不显式提供。"""
+        ...
+
+    # ---- Reflection 策略的 prompt ----
+    @property
+    def reflection_generate_prompt(self) -> str:
+        """Reflection 策略的"生成首版"子 agent 的 system prompt（带工具集）。
+
+        空字符串表示"用策略层默认 prompt"。"""
+        ...
+
+    @property
+    def reflection_critique_prompt(self) -> str:
+        """Reflection 策略的"评审 / 找问题"子 agent 的 system prompt
+        （不带工具，输出 :class:`Critique`）。
+
+        空字符串表示"用策略层默认 prompt"。"""
+        ...
+
+    @property
+    def reflection_refine_prompt(self) -> str:
+        """Reflection 策略的"refine / 重写"子 agent 的 system prompt
+        （带工具集，吃当前 draft + critique 产出新 draft）。
+
+        空字符串表示"用策略层默认 prompt"。"""
+        ...
+
+    @property
+    def max_reflection_iterations(self) -> int:
+        """Reflection 策略的 refine 循环上限。
+
+        超过这个次数后即使 critique 还给 ``revise``，也会强制 act（避免无限循环）。
+        默认 ``3``。"""
         ...
 
     # ---- 工具集 ----

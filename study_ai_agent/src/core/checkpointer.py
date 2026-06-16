@@ -89,6 +89,10 @@ def _build_conninfo(s: Settings) -> str:
       ``SET search_path``，等效于每个连接都先执行 ``SET search_path``。
       这是 langgraph-checkpoint-postgres 3.x 移除了 ``schema`` 之后的
       标准做法。
+    * libpq ``keepalives=1`` —— Windows 上必须显式开，libpq 默认不开。
+      配合 ``keepalives_idle`` / ``keepalives_interval`` / ``keepalives_count``
+      在 TCP 层探测已被防火墙 / NAT 静悄悄 drop 的死连接。否则池子里的
+      僵尸连接要等到下一次 ``execute`` 才暴露，已经太晚。
     """
     from urllib.parse import quote, quote_plus
 
@@ -107,9 +111,30 @@ def _build_conninfo(s: Settings) -> str:
         # quote 后是合法的 libpq 连接参数
         sp = quote(f'-c search_path="{s.POSTGRES_SCHEMA}",public')
         params.append(f"options={sp}")
+    # libpq TCP keepalive。Windows 防火墙 / NAT 经常静悄悄 RST 长连接，
+    # 客户端 libpq 默认 keepalives=0（关），必须显式开才能让 OS 帮我们探测。
+    if s.POSTGRES_KEEPALIVES:
+        params.append(f"keepalives={int(s.POSTGRES_KEEPALIVES)}")
+        params.append(f"keepalives_idle={int(s.POSTGRES_KEEPALIVES_IDLE)}")
+        params.append(
+            f"keepalives_interval={int(s.POSTGRES_KEEPALIVES_INTERVAL)}"
+        )
+        params.append(f"keepalives_count={int(s.POSTGRES_KEEPALIVES_COUNT)}")
     if params:
         base = f"{base}?{'&'.join(params)}"
     return base
+
+
+async def _check_connection_health(conn) -> None:
+    """池子 ``check`` 钩子：每次 ``getconn`` 前跑 ``SELECT 1`` 验活。
+
+    抛任何异常（连接被服务端 kick、TCP 断、查询超时）都视为"坏连接"，
+    psycopg-pool 会丢弃并自动重建。这是防"僵尸连接"导致 PoolTimeout
+    的**第一道防线**。
+
+    SELECT 1 走 PG 内部 ping path，**不**触发应用级查询计划，开销 < 1ms。
+    """
+    await conn.execute("SELECT 1")
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +224,8 @@ class CheckpointerFactory:
         conninfo = _build_conninfo(s)
         logger.info(
             "初始化 Postgres 连接池：host=%s port=%d db=%s schema=%s "
-            "min_size=%d max_size=%d timeout=%.1fs",
+            "min_size=%d max_size=%d timeout=%.1fs "
+            "check=%s max_idle=%.0fs max_lifetime=%.0fs keepalives=%d",
             s.POSTGRES_HOST,
             s.POSTGRES_PORT,
             s.POSTGRES_DB,
@@ -207,18 +233,31 @@ class CheckpointerFactory:
             s.POSTGRES_POOL_MIN_SIZE,
             s.POSTGRES_POOL_MAX_SIZE,
             s.POSTGRES_POOL_TIMEOUT,
+            s.POSTGRES_POOL_CHECK,
+            s.POSTGRES_POOL_MAX_IDLE,
+            s.POSTGRES_POOL_MAX_LIFETIME,
+            s.POSTGRES_KEEPALIVES,
         )
 
         # 显式 open=False + 手动 open —— 这样 setup() 失败时能立刻 raise，
         # 比 async with 在错误路径上吞掉更安全。
         # langgraph-checkpoint-postgres 3.1.0 移除了 schema kwarg；
         # 自定义 schema 已通过 DSN 的 options=-c search_path=... 实现。
+        #
+        # 三道防僵尸连接配置：
+        #   * check=...           —— 每次 getconn 前 SELECT 1，坏连接丢弃重建
+        #   * max_idle=...        —— 闲置超过 N 秒主动关掉（防服务端超时）
+        #   * max_lifetime=...    —— 强制 N 秒后重建（无论是否闲置）
+        # 关掉任何一道都把"防僵尸"的责任上移到调用方，不推荐。
         self._pool = AsyncConnectionPool(
             conninfo=conninfo,
             min_size=s.POSTGRES_POOL_MIN_SIZE,
             max_size=s.POSTGRES_POOL_MAX_SIZE,
             timeout=s.POSTGRES_POOL_TIMEOUT,
             kwargs={"autocommit": True},  # langgraph 自己管事务
+            check=_check_connection_health if s.POSTGRES_POOL_CHECK else None,
+            max_idle=s.POSTGRES_POOL_MAX_IDLE,
+            max_lifetime=s.POSTGRES_POOL_MAX_LIFETIME,
             open=False,
         )
         try:
@@ -293,6 +332,15 @@ class CheckpointerFactory:
     async def ping(self) -> dict:
         """健康检查：池活跃度 + 一次 ``SELECT 1``。
 
+        暴露的 stats 让我们**一眼分辨**三种常见故障：
+
+        * 正常：
+          ``size > 0, available > 0, requests_num == 0``，``ok: true``
+        * 池子打满（并发耗尽）：
+          ``size == max_size, available == 0, requests_num > 0``，``ok: true`` 但要警惕
+        * 全是僵尸（坏连接）：
+          ``SELECT 1`` 抛 ``OperationalError``，``ok: false`` + ``error`` 字段
+
         Returns
         -------
         dict
@@ -312,10 +360,17 @@ class CheckpointerFactory:
             stats = self._pool.get_stats()
             info["ok"] = True
             info["pool"] = {
+                # 关键诊断字段
                 "min_size": self._pool.min_size,
                 "max_size": self._pool.max_size,
                 "size": stats.get("pool_size"),
                 "available": stats.get("pool_available"),
+                "requests_num": stats.get("requests_num"),
+                "requests_wait_ms": stats.get("requests_wait_ms"),
+                # 次要：累计统计
+                "connections_num": stats.get("connections_num"),
+                "connections_lost": stats.get("connections_lost"),
+                "usage_ms": stats.get("usage_ms"),
             }
         except Exception as exc:
             info["error"] = f"{type(exc).__name__}: {exc}"

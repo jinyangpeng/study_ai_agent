@@ -39,6 +39,9 @@ class ResearchSkill(BaseSkill):
         "纯只读，不会修改文件或执行命令。"
     )
 
+    # 走 PERA：拆解 -> 检索 -> 审计（是否覆盖了所有子问题、引用是否可靠）。
+    strategy: str = "p_e_r_a"
+
     # ---- 前端欢迎区的快捷提示卡 ----
     quick_prompts: list[dict[str, str]] = [
         {

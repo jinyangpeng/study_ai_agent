@@ -32,48 +32,35 @@
 * ``_route_after_review`` 把 ``Review.verdict`` 映射到下一节点：
   ``approve`` -> ``act``，``revise`` -> ``plan``（循环到上限由
   ``recursion_limit`` 兜底）。
+* 共享 helper（middleware 构造 / 文本抽取）走 :mod:`src.core.strategies.base`，
+  这里只放 PERA 专属的拓扑 / 工厂。
 """
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import json
+import logging
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import AgentMiddleware, HumanInTheLoopMiddleware
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from src.core.middleware import BASE_MIDDLEWARES
 from src.core.schemas import Plan, Review
 from src.core.skill import SkillModule
 from src.core.state import AgentState
-from src.core.strategies.base import BaseStrategy, NodeFn, extract_structured
+from src.core.strategies.base import (
+    BaseStrategy,
+    NodeFn,
+    build_skill_middleware,
+    extract_structured,
+    extract_text_from_message,
+)
 
 __all__ = ["PerAStrategy", "make_plan_node", "make_execute_node",
            "make_review_node", "make_act_node", "_route_after_review"]
 
-
-# ---------------------------------------------------------------------------
-# 共享 helper（本策略内部使用）
-# ---------------------------------------------------------------------------
-def _build_execute_middleware(skill: SkillModule) -> list[AgentMiddleware]:
-    """组装 execute 节点的 middleware 栈：
-
-    * 共享的基栈（``BASE_MIDDLEWARES`` —— 不含 HITL 闸门）
-    * 一个 :class:`HumanInTheLoopMiddleware` 实例，其 ``interrupt_on``
-      映射是 skill 的 per-tool 策略。
-
-    每次 skill 调用都返回新 list，避免 skill 之间互相串味。
-    """
-    middlewares: list[AgentMiddleware] = list(BASE_MIDDLEWARES)
-    hitl_rules = skill.hitl_rules
-    if hitl_rules:
-        middlewares.append(
-            HumanInTheLoopMiddleware(interrupt_on=hitl_rules),
-        )
-    return middlewares
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -177,8 +164,8 @@ class PerAStrategy(BaseStrategy):
     @staticmethod
     def _make_execute_node(skill: SkillModule, model) -> NodeFn:
         """构建一个带 skill 工具集和 middleware 的 execute 节点。"""
-        tools: list[BaseTool] = list(skill.tools)
-        middleware = _build_execute_middleware(skill)
+        tools = list(skill.tools)
+        middleware = build_skill_middleware(skill)
         agent = create_agent(
             model=model,
             system_prompt=skill.execute_prompt,
@@ -198,9 +185,46 @@ class PerAStrategy(BaseStrategy):
                 if plan_payload is not None
                 else "Execute the user's request."
             )
-            result = await agent.ainvoke(
-                {"messages": state["messages"] + [plan_msg]}
+            messages_in = state["messages"] + [plan_msg]
+            # region debug-point execute-entry
+            # 插桩：记录 model/tools/messages 数量，方便定位"模型在生成什么 tool_call 时炸了"
+            try:
+                _model_name = getattr(model, "model_name", None) or getattr(model, "model", "<unknown>")
+            except Exception:
+                _model_name = "<unknown>"
+            logger.info(
+                "[dbg][execute] model=%s tools=%s messages_in=%d",
+                _model_name, [t.name for t in tools], len(messages_in),
             )
+            # endregion
+            try:
+                result = await agent.ainvoke({"messages": messages_in})
+            except Exception as _exc:
+                # region debug-point execute-error
+                # 插桩：APIError 时把"出错前的最后几条消息"和"异常 body"打出来
+                import openai  # 局部 import 避免污染顶层依赖
+                if isinstance(_exc, openai.APIError):
+                    logger.error(
+                        "[dbg][execute] APIError: status=%s code=%s type=%s message=%s request_id=%s",
+                        getattr(_exc, "status_code", None),
+                        getattr(_exc, "code", None),
+                        getattr(_exc, "type", None),
+                        str(_exc)[:500],
+                        getattr(_exc, "request_id", None),
+                    )
+                    # 上游响应体（如有）—— 通常包含具体哪个 function.arguments 非法
+                    body = getattr(_exc, "body", None)
+                    if body is not None:
+                        logger.error("[dbg][execute] error body=%s", str(body)[:800])
+                # 打印最近 3 条消息摘要，便于定位"是哪个 tool 结果把模型喂崩了"
+                tail = messages_in[-3:] if len(messages_in) > 3 else messages_in
+                for i, m in enumerate(tail):
+                    logger.error(
+                        "[dbg][execute] msg[-%d] type=%s content[:200]=%s",
+                        len(messages_in) - i, type(m).__name__, str(getattr(m, "content", ""))[:200],
+                    )
+                # endregion
+                raise
             return {"messages": result["messages"]}
 
         return execute_node
@@ -234,18 +258,7 @@ class PerAStrategy(BaseStrategy):
         async def act_node(state: AgentState) -> dict:
             messages = state.get("messages", [])
             last = messages[-1] if messages else None
-            if last is None:
-                raw = ""
-            elif isinstance(last.content, str):
-                raw = last.content
-            elif isinstance(last.content, list):
-                raw = "".join(
-                    part.get("text", "")
-                    for part in last.content
-                    if isinstance(part, dict)
-                )
-            else:
-                raw = str(last.content)
+            raw = extract_text_from_message(last)
             final = skill.transform_final_answer(raw)
             return {"final_answer": final, "messages": [AIMessage(content=final)]}
 

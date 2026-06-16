@@ -78,6 +78,33 @@ class Review(BaseModel):
     )
 
 
+class Critique(BaseModel):
+    """reflection 策略的 critique 节点输出（架构的 C 步）。
+
+    形状与 :class:`Review` 几乎一致 —— 都是二元 verdict + issues +
+    suggestions；分开命名是因为它们的语义不同：
+
+    * :class:`Review` 是 PERA 架构里"对照 plan 审计 execute 结果"的产物，
+      关注"是否完成 plan / 是否合规范"。
+    * :class:`Critique` 是 Reflection 架构里"对照原始问题评价当前 draft
+      质量"的产物，关注"是否答得到位 / 是否能更准确更完整"。
+
+    verdict 驱动 critique 之后的那条条件边：``approve`` -> act，``revise``
+    -> refine（由 LangGraph 的 ``recursion_limit`` + skill 的
+    ``max_reflection_iterations`` 兜底循环上限）。
+    """
+
+    verdict: Literal["approve", "revise"] = Field(
+        ..., description="'approve' 表示发布，'revise' 表示回 refine 重写。"
+    )
+    issues: list[str] = Field(
+        default_factory=list, description="当前 draft 里的具体问题。"
+    )
+    suggestions: list[str] = Field(
+        default_factory=list, description="下一轮 refine 应该做的具体修改。"
+    )
+
+
 # ---------------------------------------------------------------------------
 # 智能体专属（可选）的输出
 # ---------------------------------------------------------------------------

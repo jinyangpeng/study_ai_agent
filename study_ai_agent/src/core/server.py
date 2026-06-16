@@ -51,7 +51,13 @@ from __future__ import annotations
 # 这里保留 policy 调用作为防御层 —— 任何不走 uvicorn ``loop_factory``
 # 的入口（直接 ``python -m src.core.server``、测试、jupyter）依然能
 # 拿到正确的 loop。warnings filter 把 3.14 的 DeprecationWarning 吞掉。
+#
+# ⚠️ 不要用 ``python -m uvicorn src.core.server:app``！那个会跳过
+# ``src/__main__.py`` 的 loop_factory 注入，policy 也来不及生效（uvicorn
+# 在 import 时就建好 Proactor loop 了）。正确启动方式：
+#     python -m src
 # ---------------------------------------------------------------------------
+import asyncio  # noqa: E402
 import sys as _sys  # noqa: E402
 if _sys.platform == "win32":  # pragma: no cover
     import asyncio as _asyncio  # noqa: E402
@@ -135,19 +141,24 @@ def _compiled_graph_for(skill_id: str):
 # ---------------------------------------------------------------------------
 # SSE 事件过滤
 # ---------------------------------------------------------------------------
-# LangChain 1.x 的 ``create_agent(response_format=Plan/Review)`` 会在子图里
-# 注册一个**合成**的 tool call：tool name = Pydantic 类名（"Plan" / "Review"），
+# LangChain 1.x 的 ``create_agent(response_format=Plan/Review/Critique)`` 会在子图里
+# 注册一个**合成**的 tool call：tool name = Pydantic 类名（"Plan" / "Review" / "Critique"），
 # args = Pydantic 字段 JSON。这是为了把 LLM 的输出强约束成结构化 JSON，
-# 实际数据流向是 ``state.plan`` / ``state.review``（由 ``STATE_SNAPSHOT``
+# 实际数据流向是 ``state.plan`` / ``state.review`` / ``state.critique``（由 ``STATE_SNAPSHOT``
 # 事件推到前端），**不**走 ``TOOL_CALL_RESULT``。
 #
 # ``ag-ui-langgraph`` 不区分"合成 tool"和"用户 tool"，会把所有 tool call
 # 都按普通 tool 流出来。这导致前端 UI 多出"一个工具名 + 永远空 result"
-# 的噪音块（args 长得很像 Plan / Review JSON，result 永远为空）。
+# 的噪音块（args 长得很像 Plan / Review / Critique JSON，result 永远为空）。
 #
 # 我们的策略：维护一个 ``blocked_tool_call_ids`` 集合，TOOL_CALL_START 命中
 # 内部白名单时把 id 加进去；之后所有引用该 id 的事件全部丢弃。
-_STRUCTURED_OUTPUT_TOOL_NAMES: frozenset[str] = frozenset({"Plan", "Review"})
+#
+# 三个白名单项的来源：
+#   * ``Plan``    — PERA 策略的 plan 节点输出
+#   * ``Review``  — PERA 策略的 review 节点输出
+#   * ``Critique``— Reflection 策略的 critique 节点输出
+_STRUCTURED_OUTPUT_TOOL_NAMES: frozenset[str] = frozenset({"Plan", "Review", "Critique"})
 
 
 async def _filter_structured_output_tool_events(
@@ -301,6 +312,13 @@ async def run_agui(payload: RunAgentInput, request: Request):
             filtered = _filter_structured_output_tool_events(raw_events)
             async for event in filtered:
                 yield encoder.encode(event)
+        except (asyncio.CancelledError, GeneratorExit):
+            # SSE 客户端断开（关浏览器 / 切路由 / 网络掉）会触发
+            # CancelledError（Python 3.8+ 是 BaseException 子类，
+            # 不会被下面那条 ``except Exception`` 接住）。静默 return，
+            # 不要走 RUN_ERROR 路径 —— 此时连接已经断了，再 yield 也送不到。
+            logger.info("SSE 客户端断开，已停止事件流 (skill=%s)", skill_id)
+            return
         except Exception as exc:
             logger.exception("AG-UI run 异常，中断事件流")
             # 编码一个 RUN_ERROR 事件，让前端知道发生了什么
@@ -494,15 +512,32 @@ async def delete_thread(thread_id: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 @app.get("/health")
 async def health() -> dict:
-    """健康检查（含 checkpointer / DB 状态）。"""
+    """健康检查（含 checkpointer / DB / 策略路由状态）。"""
     cp_status = await checkpointer_factory.ping()
     overall_ok = cp_status.get("ok", False)
+
+    # 暴露每个 skill 实际绑定的策略名 + 全局可用策略列表。
+    # 便于运维一眼看清"qa 走 PERA、coding 走 ReAct"这种路由，
+    # 排查"为什么这个 skill 反应这么慢"时也直接看 strategy 就能定位拓扑。
+    from src.core.strategies import available as available_strategies
+    from src.skills import SKILL_REGISTRY
+
     return {
         "status": "ok" if overall_ok else "degraded",
         "agent": {"name": AGENT_NAME},
         "protocol": "ag-ui",
         "default_skill": _default_skill_id(),
         "checkpointer": cp_status,
+        "strategies": {
+            "available": available_strategies(),
+            "per_skill": {
+                sid: {
+                    "name": s.name,
+                    "strategy": s.strategy,
+                }
+                for sid, s in SKILL_REGISTRY.items()
+            },
+        },
     }
 
 

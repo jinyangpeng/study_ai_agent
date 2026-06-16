@@ -98,15 +98,25 @@ def main() -> int:
             nodes_r = sorted(g_research.get_graph().nodes.keys())
             print(f"  coding   graph nodes: {nodes_c}")
             print(f"  research graph nodes: {nodes_r}")
-            expected = sorted(
+            # 不同的 skill 走不同策略 —— 拓扑不再要求一致。验证每个 skill
+            # 确实走到自己声明的策略：coding=react、research=pera。
+            expected_c = sorted(
+                ["__start__", "react_agent", "act", "__end__"]
+            )
+            expected_r = sorted(
                 ["__start__", "plan", "execute", "review", "act", "__end__"]
             )
-            assert nodes_c == nodes_r == expected
+            assert nodes_c == expected_c, (
+                f"coding should use react topology, got {nodes_c}"
+            )
+            assert nodes_r == expected_r, (
+                f"research should use p_e_r_a topology, got {nodes_r}"
+            )
         finally:
             await checkpointer_factory.aclose()
 
     asyncio.run(compile_both())
-    print("[OK] both skills compile to identical Plan-Execute-Review-Act topology")
+    print("[OK] each skill compiles to its declared strategy topology")
 
     print("--- FastAPI app ---")
     import src.core.server as srv

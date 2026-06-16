@@ -18,8 +18,19 @@ logger = logging.getLogger(__name__)
 try:
     from langchain_community.tools import DuckDuckGoSearchResults
 
+    from src.core.tools.safe_tool import make_safe
+
     class _ProxyAwareDuckDuckGoSearchResults(DuckDuckGoSearchResults):
-        """DuckDuckGoSearchResults 的代理感知版。
+        """DuckDuckGoSearchResults 的代理感知 + 异常安全版。
+
+        ``_run`` / ``_arun`` 在外层包 ``use_temp_env_proxy``，
+        然后用 :func:`src.core.tools.safe_tool.make_safe` 给
+        实例本身加 try/except 包装（不是改类）：
+
+        * 任何 ``Exception``（网络超时、HTTP 错误、解析失败）都会被
+          转成结构化 JSON 错误返回给 LLM，让 agent 优雅降级
+        * 而不是 panic 上传把 langgraph 的 graph 搞崩
+        * ``BaseException``（CancelledError 等）原样上抛
 
         :class:`DuckDuckGoSearchResults` 的 ``.name`` 实际是
         ``"duckduckgo_results_json"``（与类名不一致），白名单里要写这个值。
@@ -33,7 +44,7 @@ try:
             with use_temp_env_proxy("duckduckgo_results_json"):
                 return await super()._arun(*args, **kwargs)
 
-    search = _ProxyAwareDuckDuckGoSearchResults()
+    search = make_safe(_ProxyAwareDuckDuckGoSearchResults())
     SEARCH_TOOLS = [search]
 except ImportError as e:
     # ``duckduckgo-search`` 是 :class:`DuckDuckGoSearchResults` 委派给的

@@ -26,16 +26,32 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from src.core.strategies.base import BaseStrategy, NodeFn, extract_structured
+from src.core.strategies.base import (
+    DEFAULT_MAX_REFLECTION_ITERATIONS,
+    BaseStrategy,
+    NodeFn,
+    build_skill_middleware,
+    extract_structured,
+    extract_text_from_message,
+)
 from src.core.strategies.p_e_r_a import PerAStrategy
+from src.core.strategies.react import ReActStrategy
+from src.core.strategies.reflection import ReflectionStrategy
 
 __all__ = [
     "BaseStrategy",
     "NodeFn",
     "PerAStrategy",
+    "ReActStrategy",
+    "ReflectionStrategy",
+    "DEFAULT_MAX_REFLECTION_ITERATIONS",
     "extract_structured",
+    "extract_text_from_message",
+    "build_skill_middleware",
     "get",
+    "validate",
     "register",
+    "available",
 ]
 
 
@@ -65,11 +81,26 @@ def get(name: str) -> BaseStrategy:
     """按名取策略实例。找不到时抛 :class:`ValueError` 并列出可用项。"""
     cls = _REGISTRY.get(name)
     if cls is None:
-        available = ", ".join(sorted(_REGISTRY)) or "<empty>"
+        available_names = ", ".join(sorted(_REGISTRY)) or "<empty>"
         raise ValueError(
-            f"未知的推理策略: {name!r}。可用策略: {available}"
+            f"未知的推理策略: {name!r}。可用策略: {available_names}"
         )
     return cls()
+
+
+def validate(name: str) -> None:
+    """校验策略名是否已注册，**不**实例化。
+
+    给 skill 用：在 BaseSkill 子类定义时（``__init_subclass__``）就调一次，
+    一旦打错策略名，**进程启动期**立刻 fail，不会拖到第一次请求才炸。
+
+    失败抛 :class:`ValueError`，错误信息列出可用项。
+    """
+    if name not in _REGISTRY:
+        available_names = ", ".join(sorted(_REGISTRY)) or "<empty>"
+        raise ValueError(
+            f"未知的推理策略: {name!r}。可用策略: {available_names}"
+        )
 
 
 def available() -> list[str]:
@@ -81,6 +112,6 @@ def available() -> list[str]:
 # 注册内置策略
 # ---------------------------------------------------------------------------
 # 这一行必须在文件最末尾执行（确保所有策略类已 import）。
-# 后续要加 ReAct / Reflection 时，把它们的 import 放在这里并 ``register(Cls)`` 即可。
-for _cls in (PerAStrategy,):
+# 加新策略时，把它们的 import 放在这里并 ``register(Cls)`` 即可。
+for _cls in (PerAStrategy, ReActStrategy, ReflectionStrategy):
     register(_cls)

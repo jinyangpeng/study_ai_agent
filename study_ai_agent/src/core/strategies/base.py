@@ -16,23 +16,38 @@
   拥有 model_factory / checkpointer 的引用，所有"运行环境"由调用方注入。
   好处是：单测里可以传 mock model；多策略共享同一份 model / checkpointer
   时也不用重新构造。
+* **共享 helper**（:func:`build_skill_middleware` / :func:`extract_text_from_message`
+  / :func:`extract_structured`）放在基类模块 —— 三个策略都要用，
+  避免在每个策略文件里复制粘贴。
 """
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import json
 from abc import ABC, abstractmethod
-from typing import Callable
+from typing import Callable, Optional
 
+from langchain.agents.middleware import AgentMiddleware, HumanInTheLoopMiddleware
+from langchain_core.messages import BaseMessage
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
+from src.core.middleware import BASE_MIDDLEWARES
 from src.core.skill import SkillModule
 
-__all__ = ["BaseStrategy", "extract_structured", "NodeFn"]
+__all__ = [
+    "BaseStrategy",
+    "NodeFn",
+    "DEFAULT_MAX_REFLECTION_ITERATIONS",
+    "extract_structured",
+    "extract_text_from_message",
+    "build_skill_middleware",
+]
 
 #: 节点函数签名：``async def node(state: AgentState) -> dict``。
 NodeFn = Callable[[dict], dict]
+
+#: Reflection 策略的 refine 循环默认上限（skill 不提供时回退到这）。
+DEFAULT_MAX_REFLECTION_ITERATIONS: int = 3
 
 
 class BaseStrategy(ABC):
@@ -71,6 +86,26 @@ class BaseStrategy(ABC):
 # ---------------------------------------------------------------------------
 # 共享 helper
 # ---------------------------------------------------------------------------
+def build_skill_middleware(skill: SkillModule) -> list[AgentMiddleware]:
+    """组装 skill 的 middleware 栈：
+
+    * 共享的基栈（``BASE_MIDDLEWARES`` —— 不含 HITL 闸门）
+    * 一个 :class:`HumanInTheLoopMiddleware` 实例，其 ``interrupt_on``
+      映射是 skill 的 per-tool 策略。
+
+    每次 skill 调用都返回**新 list**，避免 skill 之间互相串味。PERA 的
+    execute 节点、ReAct 的 react 节点、Reflection 的 generate / refine
+    节点都走这个统一构造。
+    """
+    middlewares: list[AgentMiddleware] = list(BASE_MIDDLEWARES)
+    hitl_rules = skill.hitl_rules
+    if hitl_rules:
+        middlewares.append(
+            HumanInTheLoopMiddleware(interrupt_on=hitl_rules),
+        )
+    return middlewares
+
+
 def extract_structured(
     result: dict,
     model_cls: type[BaseModel],
@@ -92,3 +127,25 @@ def extract_structured(
             part.get("text", "") for part in text if isinstance(part, dict)
         )
     return model_cls.model_validate_json(str(text))
+
+
+def extract_text_from_message(message: Optional[BaseMessage]) -> str:
+    """从 AIMessage（或其他任何 :class:`BaseMessage`）里抽纯文本。
+
+    * ``content`` 是 str —— 直接返回
+    * ``content`` 是 list（多模态 / LangChain v1 的 content blocks）——
+      拼出所有 ``{"type": "text", "text": "..."}`` 块
+    * ``content`` 是 None / 其他 —— 走 ``str(content)`` 兜底
+    """
+    if message is None:
+        return ""
+    content = getattr(message, "content", "")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            part.get("text", "")
+            for part in content
+            if isinstance(part, dict)
+        )
+    return str(content)

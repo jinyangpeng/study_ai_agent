@@ -11,6 +11,12 @@ HITL 策略
 ``write_file`` / ``edit_file`` 允许 ``edit``（人工调整内容后批准），
 ``delete_file`` / ``shell_exec`` / ``git_commit`` / ``git_push`` 只允许
 ``approve`` / ``reject``（partial edit 太危险）。
+
+推理策略
+--------
+走 ReAct：代码任务本质是 thought -> tool call（读文件 / 跑命令）-> 观察
+输出 -> 再决策，PERA 的 plan / review 中间环节收益不大，徒增 token。
+Reflection 适合"代码评审"类场景；coding 这个 skill 主打"动手做"，故选 ReAct。
 """
 # -*- coding: utf-8 -*-
 from __future__ import annotations
@@ -33,6 +39,9 @@ class CodingSkill(BaseSkill):
         "面向软件工程任务的智能体：读取 / 搜索 / 编辑文件，运行命令，提交代码。"
         "写文件和 shell 命令会触发人工审批。"
     )
+
+    # 走 ReAct（详见模块 docstring）
+    strategy: str = "react"
 
     # ---- 前端欢迎区的快捷提示卡 ----
     quick_prompts: list[dict[str, str]] = [
@@ -62,9 +71,26 @@ class CodingSkill(BaseSkill):
         },
     ]
 
-    # ---- Plan-Execute-Review-Act prompts ----
+    # ---- ReAct prompt ----
+    # coding 走 ReAct，所以这里的关键 prompt 是 react_prompt；
+    # plan/execute/review 三个 PERA prompt 仍保留，万一以后切回 PERA 不用重写。
+    react_prompt: str = (
+        "You are a coding assistant using the ReAct pattern.\n"
+        "For each turn, follow this loop:\n"
+        "  1. Thought — reason about what to do next\n"
+        "  2. Action — call exactly one tool (read_file / edit_file / shell_exec / ...)\n"
+        "  3. Observation — read the tool result\n"
+        "  4. Repeat until the task is verifiably done\n"
+        "\n"
+        "Be precise with file paths and tool arguments. Read before you write.\n"
+        "If a tool returns an error, do not retry blindly — diagnose and adjust.\n"
+        "For destructive operations (delete, shell_exec with side effects, git push),\n"
+        "the user will be prompted for approval — wait for the decision before continuing."
+    )
+
+    # ---- Plan-Execute-Review-Act prompts (备用，切回 PERA 时用) ----
     plan_prompt: str = (
-        "You are the PLAN node of a Plan-Execute-Review-Act coding agent.\n"
+        "You are a planning specialist for software-engineering tasks.\n"
         "Read the conversation, then produce a CONCRETE plan as JSON.\n"
         "- goal: restate the user's request in one sentence\n"
         "- steps: 2-6 ordered steps; each step must be small enough to verify\n"
@@ -74,16 +100,14 @@ class CodingSkill(BaseSkill):
     )
 
     execute_prompt: str = (
-        "You are the EXECUTE node of a Plan-Execute-Review-Act coding agent. "
-        "Use the available tools to implement the plan step by step.\n"
+        "You are a coding executor. Use the available tools to implement the plan step by step.\n"
         "For each file edit, summarise it in your final answer with a unified diff (or a one-liner).\n"
         "Stop and explain if a step is risky (destructive command, large rewrite, ambiguous spec).\n"
         "Never run interactive commands; never pipe secrets to a subprocess."
     )
 
     review_prompt: str = (
-        "You are the REVIEW node of a Plan-Execute-Review-Act coding agent. "
-        "Audit the execute node's work against the plan.\n"
+        "You are a code reviewer. Audit the executor's work against the plan.\n"
         "Output JSON with verdict='approve' (publishable) or 'revise' (loop back).\n"
         "Be specific in 'issues' and 'suggestions' - vague feedback is not actionable."
     )

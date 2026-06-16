@@ -85,10 +85,37 @@ class Settings(BaseSettings):
     POSTGRES_POOL_MIN_SIZE: int = int(os.getenv("POSTGRES_POOL_MIN_SIZE", "2"))
     POSTGRES_POOL_MAX_SIZE: int = int(os.getenv("POSTGRES_POOL_MAX_SIZE", "10"))
     POSTGRES_POOL_TIMEOUT: float = float(os.getenv("POSTGRES_POOL_TIMEOUT", "30"))
+    # 池子健康自检 + 主动回收：防"僵尸连接"导致 PoolTimeout。
+    #   CHECK=true      —— 每次 getconn 前跑 SELECT 1，坏连接丢弃重建
+    #   MAX_IDLE=600    —— 闲置 10 分钟的连接主动关掉（防服务端 idle-in-tx 超时）
+    #   MAX_LIFETIME=3600 —— 强制 1 小时重建一次（不论是否闲置）
+    POSTGRES_POOL_CHECK: bool = os.getenv("POSTGRES_POOL_CHECK", "true").lower() in (
+        "1", "true", "yes", "y", "on"
+    )
+    POSTGRES_POOL_MAX_IDLE: float = float(os.getenv("POSTGRES_POOL_MAX_IDLE", "600"))
+    POSTGRES_POOL_MAX_LIFETIME: float = float(
+        os.getenv("POSTGRES_POOL_MAX_LIFETIME", "3600")
+    )
+    # Windows 必开：libpq TCP keepalive 探测死连接。
+    # Linux 上 PG 服务端 keepalive 默认开着，但客户端 DSN 不开等于没开。
+    POSTGRES_KEEPALIVES: int = int(os.getenv("POSTGRES_KEEPALIVES", "1"))
+    POSTGRES_KEEPALIVES_IDLE: int = int(os.getenv("POSTGRES_KEEPALIVES_IDLE", "60"))
+    POSTGRES_KEEPALIVES_INTERVAL: int = int(
+        os.getenv("POSTGRES_KEEPALIVES_INTERVAL", "10")
+    )
+    POSTGRES_KEEPALIVES_COUNT: int = int(
+        os.getenv("POSTGRES_KEEPALIVES_COUNT", "5")
+    )
     # checkpointer 后端选择：
     #   postgres —— AsyncPostgresSaver + 连接池（生产推荐）
     #   memory   —— InMemorySaver（本地无 DB 时回退，仅 dev）
     CHECKPOINTER_BACKEND: str = os.getenv("CHECKPOINTER_BACKEND", "postgres")
+
+    # ---- LangGraph 运行时 ----
+    # 控制 PERA / Reflection 这类有循环边的图最多走多少步。
+    # LangGraph 默认 25，工具频繁失败时 LLM 反复重试会过早撞顶（GraphRecursionError）。
+    # 75 大约够 PERA 5-6 轮 revise + Reflection 5 轮 refine + buffer。
+    LANGGRAPH_RECURSION_LIMIT: int = int(os.getenv("LANGGRAPH_RECURSION_LIMIT", "75"))
 
 
 @lru_cache
