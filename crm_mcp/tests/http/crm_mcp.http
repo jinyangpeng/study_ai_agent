@@ -1,0 +1,343 @@
+### ============================================================
+### CRM MCP Service - HTTP API 测试
+###
+### 用 VSCode REST Client (humao.rest-client) 或 IntelliJ IDEA
+### 的 HTTP Client 插件打开本文件。点击 "### xxx" 标题上方的
+### "Send Request" 即可逐条执行。
+###
+### 启动服务（另一个终端）：
+###     cd crm_mcp
+###     python -m crm_mcp                    # 监听 0.0.0.0:8001
+###     # 或自定义端口：
+###     $env:CRM_MCP_PORT = 18765; python -m crm_mcp
+###
+### 协议要点
+### ---------
+### MCP Streamable HTTP 是有状态协议：
+###   1) 先 POST /mcp 发 initialize，请求会得到 Mcp-Session-Id header
+###   2) 同一个 session id 继续发 notifications/initialized
+###   3) 之后所有 tools/call / resources/read 都必须带这个 header
+###
+### 会话保持机制
+### -------------
+### 第一个请求用 `# @name initSession` 命名；后续请求通过
+###   {{initSession.response.headers.Mcp-Session-Id}}
+### 直接引用上一个请求返回的响应头（不需要 > {% %} 脚本块，
+### 兼容性更好）。
+###
+### 完整调试（看每个 tool 的 schema、试 Prompt / Resource）请用
+### 官方 Inspector：
+###     npx @modelcontextprotocol/inspector http://localhost:8001/mcp
+### ============================================================
+
+
+### ===== Variables =====
+@host = http://localhost:8001
+@contentType = application/json
+@accept = application/json, text/event-stream
+@sessionId = {{initSession.response.headers.Mcp-Session-Id}}
+
+
+### ============================================================
+### 1. 初始化 MCP 会话（必须先跑，拿到 Mcp-Session-Id）
+###    响应头中的 Mcp-Session-Id 会被后续请求自动引用
+### ============================================================
+# @name initSession
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": {"name": "rest-client", "version": "1.0"}
+  }
+}
+
+
+### ============================================================
+### 2. 发送 initialized 通知（按 MCP 规范必须）
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/initialized"
+}
+
+
+### ============================================================
+### 3. 列出所有可用工具（28 个）
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/list"
+}
+
+
+### ============================================================
+### 4. 列出所有客户（默认 markdown）
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "crm_list_customers",
+    "arguments": {
+      "limit": 5,
+      "response_format": "markdown"
+    }
+  }
+}
+
+
+### ============================================================
+### 5. 按 ID 获取客户 C-000001（JSON 格式）
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "method": "tools/call",
+  "params": {
+    "name": "crm_get_customer",
+    "arguments": {
+      "customer_id": "C-000001",
+      "response_format": "json"
+    }
+  }
+}
+
+
+### ============================================================
+### 6. 按行业过滤客户（关键字："金融"）
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 5,
+  "method": "tools/call",
+  "params": {
+    "name": "crm_list_customers",
+    "arguments": {
+      "query": "金融",
+      "industry": "finance",
+      "response_format": "markdown"
+    }
+  }
+}
+
+
+### ============================================================
+### 7. 列出所有商机（带分页 + 排序）
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 6,
+  "method": "tools/call",
+  "params": {
+    "name": "crm_list_opportunities",
+    "arguments": {
+      "stage": "negotiation",
+      "min_amount": 100000,
+      "sort_by": "amount",
+      "sort_order": "desc",
+      "limit": 10,
+      "response_format": "json"
+    }
+  }
+}
+
+
+### ============================================================
+### 8. 创建客户
+###    响应体里会带新客户的 id；用 {{createCustomer.response.body...}}
+###    解析在后续请求中需要时使用
+### ============================================================
+# @name createCustomer
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 7,
+  "method": "tools/call",
+  "params": {
+    "name": "crm_create_customer",
+    "arguments": {
+      "params": {
+        "name": "REST Client 测试客户",
+        "industry": "internet",
+        "tier": "standard",
+        "status": "prospect",
+        "owner": "rest-client"
+      },
+      "response_format": "json"
+    }
+  }
+}
+
+> {%
+  // 解析响应中的新客户 ID 写入全局变量
+  try {
+    const body = JSON.parse(response.body);
+    const text = body?.result?.content?.[0]?.text || "";
+    const data = JSON.parse(text);
+    if (data?.data?.id) {
+      client.global.set("newCustomerId", data.data.id);
+    }
+  } catch (e) {
+    // 静默失败，下方请求会因变量为空而失败，方便发现
+  }
+%}
+
+
+### ============================================================
+### 9. 更新刚创建的客户（依赖 #8 的 newCustomerId 全局变量）
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 8,
+  "method": "tools/call",
+  "params": {
+    "name": "crm_update_customer",
+    "arguments": {
+      "customer_id": "{{newCustomerId}}",
+      "params": {
+        "status": "active",
+        "tier": "key",
+        "notes": "由 .http 测试更新"
+      },
+      "response_format": "json"
+    }
+  }
+}
+
+
+### ============================================================
+### 10. 删除刚创建的客户
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 9,
+  "method": "tools/call",
+  "params": {
+    "name": "crm_delete_customer",
+    "arguments": {
+      "customer_id": "{{newCustomerId}}"
+    }
+  }
+}
+
+
+### ============================================================
+### 11. 错误路径：删除不存在的客户（应返回 [CRM_NOT_FOUND]）
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 10,
+  "method": "tools/call",
+  "params": {
+    "name": "crm_delete_customer",
+    "arguments": {
+      "customer_id": "C-999999"
+    }
+  }
+}
+
+
+### ============================================================
+### 12. 读取 crm://overview 资源
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 11,
+  "method": "resources/read",
+  "params": {
+    "uri": "crm://overview"
+  }
+}
+
+
+### ============================================================
+### 13. 列出所有 Prompts
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "method": "prompts/list"
+}
+
+
+### ============================================================
+### 14. 列出所有 Resources
+### ============================================================
+POST {{host}}/mcp
+Content-Type: {{contentType}}
+Accept: {{accept}}
+Mcp-Session-Id: {{sessionId}}
+
+{
+  "jsonrpc": "2.0",
+  "id": 13,
+  "method": "resources/list"
+}

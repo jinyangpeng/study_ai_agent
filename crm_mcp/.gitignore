@@ -1,0 +1,25 @@
+# CRM MCP 服务的本地数据 / 缓存
+# seed 文件（crm_seed.json）需要入库，store 文件是运行时数据
+crm_store.json
+crm_store.json.tmp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# 环境
+.env
+.env.local
+
+# 测试 / IDE
+.pytest_cache/
+.coverage
+htmlcov/
+.idea/
+.vscode/
+*.log

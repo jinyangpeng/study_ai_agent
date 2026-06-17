@@ -50,7 +50,6 @@ dependencies = [
 
     # ---- AG-UI 协议层 ----
     # 官方协议（事件 / 编码器） + LangGraph 适配器。
-    # 不再依赖 CopilotKit 私有 SDK；任何 AG-UI 兼容前端都能对接。
     "ag-ui-protocol>=0.1.19",
     "ag-ui-langgraph>=0.0.37",
 

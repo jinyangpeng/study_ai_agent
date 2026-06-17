@@ -1,0 +1,36 @@
+[project]
+name = "crm-mcp"
+version = "0.1.0"
+description = "CRM 系统 MCP 服务（基于模拟数据，企业级最佳实践）"
+requires-python = ">=3.10"
+dependencies = [
+    # MCP 官方 Python SDK（FastMCP 高层封装）
+    "mcp>=1.2.0",
+    # 输入校验 / 配置
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.1",
+    # HTTP 服务（uvicorn 仅作为可选项；MCP 自带 ASGI 运行时）
+    "uvicorn>=0.48.0",
+]
+
+[project.scripts]
+crm-mcp = "crm_mcp.server:main"
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["crm_mcp*"]
+
+[tool.setuptools.package-data]
+"crm_mcp" = ["data/*.json"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
