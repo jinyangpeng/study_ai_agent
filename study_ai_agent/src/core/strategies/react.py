@@ -32,6 +32,7 @@
 * ``act`` 节点从 messages 抽最后一条 AI 文本，走 skill 的
   ``transform_final_answer``，推到 ``final_answer`` 字段。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -49,8 +50,7 @@ from src.core.strategies.base import (
     extract_text_from_message,
 )
 
-__all__ = ["ReActStrategy", "make_react_node", "make_act_node",
-           "DEFAULT_REACT_PROMPT"]
+__all__ = ["ReActStrategy", "make_react_node", "make_act_node", "DEFAULT_REACT_PROMPT"]
 
 
 # ---------------------------------------------------------------------------

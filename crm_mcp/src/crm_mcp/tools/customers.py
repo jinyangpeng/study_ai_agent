@@ -2,6 +2,7 @@
 
 工具命名规范 ``crm_<action>_<resource>``，避免与其它 MCP server 冲突。
 """
+
 from __future__ import annotations
 
 import logging

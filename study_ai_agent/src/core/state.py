@@ -15,6 +15,7 @@
 所有字段都是 ``total=False``，每个节点只写自己负责的 key；图的 reducer
 （``add_messages``）负责合并。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

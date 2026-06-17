@@ -4,6 +4,7 @@
 ``langchain_openai.ChatOpenAI`` 的标准流式输出和 tool calling 能力。
 ``base_url`` 可被环境变量 ``QIANFAN_BASE_URL`` 覆盖。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

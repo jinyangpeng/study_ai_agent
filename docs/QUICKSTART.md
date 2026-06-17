@@ -42,7 +42,7 @@ source .venv/bin/activate
 
 pip install -e ".[dev]"
 
-make env-dev
+just env-dev
 # 编辑 .env.development，至少填一个 LLM 的 API Key
 ```
 

@@ -106,7 +106,7 @@ function iconForSkeleton(id: string | undefined): typeof Code2 {
 ### 1.4 自检
 
 ```bash
-make dev
+just dev
 curl http://localhost:8000/skeletons | jq '.skeletons[].id'
 # 应输出 4 个：coding / qa / research / data_analysis
 ```
@@ -191,7 +191,7 @@ class AgentConfig(BaseModel):
 
 ```bash
 # 在 .env.development 填 MOONSHOT_API_KEY=...
-make dev
+just dev
 # 启动日志应出现 "MOONSHOT API key configured, available"
 ```
 

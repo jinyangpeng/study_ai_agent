@@ -18,6 +18,7 @@ HITL 策略
 输出 -> 再决策，PERA 的 plan / review 中间环节收益不大，徒增 token。
 Reflection 适合"代码评审"类场景；coding 这个 skill 主打"动手做"，故选 ReAct。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -36,8 +37,7 @@ class CodingSkill(BaseSkill):
     id: str = "coding"
     name: str = "编程智能体"
     description: str = (
-        "面向软件工程任务的智能体：读取 / 搜索 / 编辑文件，运行命令，提交代码。"
-        "写文件和 shell 命令会触发人工审批。"
+        "面向软件工程任务的智能体：读取 / 搜索 / 编辑文件，运行命令，提交代码。写文件和 shell 命令会触发人工审批。"
     )
 
     # 走 ReAct（详见模块 docstring）

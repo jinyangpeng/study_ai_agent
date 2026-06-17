@@ -35,6 +35,7 @@
 * 共享 helper（middleware 构造 / 文本抽取）走 :mod:`src.core.strategies.base`，
   这里只放 PERA 专属的拓扑 / 工厂。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -57,8 +58,14 @@ from src.core.strategies.base import (
     extract_text_from_message,
 )
 
-__all__ = ["PerAStrategy", "make_plan_node", "make_execute_node",
-           "make_review_node", "make_act_node", "_route_after_review"]
+__all__ = [
+    "PerAStrategy",
+    "make_plan_node",
+    "make_execute_node",
+    "make_review_node",
+    "make_act_node",
+    "_route_after_review",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +201,9 @@ class PerAStrategy(BaseStrategy):
                 _model_name = "<unknown>"
             logger.info(
                 "[dbg][execute] model=%s tools=%s messages_in=%d",
-                _model_name, [t.name for t in tools], len(messages_in),
+                _model_name,
+                [t.name for t in tools],
+                len(messages_in),
             )
             # endregion
             try:
@@ -203,6 +212,7 @@ class PerAStrategy(BaseStrategy):
                 # region debug-point execute-error
                 # 插桩：APIError 时把"出错前的最后几条消息"和"异常 body"打出来
                 import openai  # 局部 import 避免污染顶层依赖
+
                 if isinstance(_exc, openai.APIError):
                     logger.error(
                         "[dbg][execute] APIError: status=%s code=%s type=%s message=%s request_id=%s",
@@ -221,7 +231,9 @@ class PerAStrategy(BaseStrategy):
                 for i, m in enumerate(tail):
                     logger.error(
                         "[dbg][execute] msg[-%d] type=%s content[:200]=%s",
-                        len(messages_in) - i, type(m).__name__, str(getattr(m, "content", ""))[:200],
+                        len(messages_in) - i,
+                        type(m).__name__,
+                        str(getattr(m, "content", ""))[:200],
                     )
                 # endregion
                 raise

@@ -6,7 +6,7 @@ LangChain 1.x + LangGraph + AG-UI 协议的多智能体运行时。
 
 - [快速开始](#快速开始)
 - [Docker 启动](#docker-启动)
-- [Makefile 命令](#makefile-命令)
+- [just 命令](#just-命令)
 - [运行时架构](#运行时架构)
 - [目录结构](#目录结构)
 - [配置项](#配置项)
@@ -47,7 +47,7 @@ pip install -r requirements.txt
 ### 3. 配置 API Key
 
 ```bash
-make env-dev        # 生成 .env.development（生产环境用 make env-prod）
+just env-dev        # 生成 .env.development（生产环境用 just env-prod）
 ```
 
 编辑 `.env.development`：
@@ -76,20 +76,20 @@ python main.py      # 监听 http://0.0.0.0:8000
 
 打开 [http://localhost:8000/health](http://localhost:8000/health) 应返回 `{"status":"ok", ...}`。
 
-## Makefile 命令
+## just 命令
 
 ```text
-make help        # 列出所有命令
-make init        # 一键初始化（venv + 依赖 + .env）
-make venv        # 仅创建虚拟环境
-make install     # 安装依赖（pip install -e ".[dev]"）
-make dev         # 开发环境运行
-make prod        # 生产环境运行
-make lint        # ruff check
-make fmt         # ruff format
-make clean       # 清理 __pycache__、dist、logs…
-make env-dev     # 创建 .env.development
-make env-prod    # 创建 .env.production
+just             # 列出所有命令
+just init        # 一键初始化（venv + 依赖 + .env）
+just venv        # 仅创建虚拟环境
+just install     # 安装依赖（pip install -e ".[dev]"）
+just dev         # 开发环境运行
+just prod        # 生产环境运行
+just lint        # ruff check
+just fmt         # ruff format
+just clean       # 清理 __pycache__、dist、logs…
+just env-dev     # 创建 .env.development
+just env-prod    # 创建 .env.production
 ```
 
 > 控制台脚本 `dev` / `prod` / `lint` / `fmt` 来自 [cli/commands.py](cli/commands.py)，
@@ -163,7 +163,7 @@ study_ai_agent/
 │   └── pii_keywords.json          # PII 关键字配置（可由用户自定义）
 ├── pyproject.toml
 ├── requirements.txt
-├── Makefile
+├── justfile
 └── main.py
 ```
 

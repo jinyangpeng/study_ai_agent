@@ -2,6 +2,7 @@
 
 CRM MCP 服务的所有可调参数都集中在这里，便于通过环境变量覆盖。
 """
+
 from __future__ import annotations
 
 import os
@@ -32,13 +33,9 @@ class Settings(BaseSettings):
 
     # ---- 数据 ----
     # 模拟数据 JSON 文件位置；首次启动时若文件不存在则从 seed 拷贝。
-    DATA_FILE: Path = Path(
-        os.getenv("CRM_MCP_DATA_FILE", str(DEFAULT_DATA_DIR / "crm_store.json"))
-    )
+    DATA_FILE: Path = Path(os.getenv("CRM_MCP_DATA_FILE", str(DEFAULT_DATA_DIR / "crm_store.json")))
     # 首次启动使用的种子数据（包内自带）
-    SEED_FILE: Path = Path(
-        os.getenv("CRM_MCP_SEED_FILE", str(DEFAULT_DATA_DIR / "crm_seed.json"))
-    )
+    SEED_FILE: Path = Path(os.getenv("CRM_MCP_SEED_FILE", str(DEFAULT_DATA_DIR / "crm_seed.json")))
 
     # ---- 日志 ----
     LOG_LEVEL: str = os.getenv("CRM_MCP_LOG_LEVEL", "INFO")

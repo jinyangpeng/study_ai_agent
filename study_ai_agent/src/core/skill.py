@@ -14,6 +14,7 @@
 HITL 策略是 per-skill 的，不是全局的：coding 智能体在 ``write_file`` /
 ``shell_exec`` 之前需要人工审批，research 智能体什么都不要审（它没有副作用）。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

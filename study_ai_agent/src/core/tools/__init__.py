@@ -7,6 +7,7 @@
 ``ddgs``），对应的 ``XXX_TOOLS`` list 就降级为 ``[]`` 并打 warning。
 这样不会因为单个可选包没装就把整个 agent server 拖死。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -54,7 +55,9 @@ def _load_tools(dotted_name: str, attr: str) -> list:
         if not isinstance(tools, list):
             logger.warning(
                 "%s.%s is not a list (got %s); treating as empty",
-                dotted_name, attr, type(tools).__name__,
+                dotted_name,
+                attr,
+                type(tools).__name__,
             )
             return []
         if tools:
@@ -96,8 +99,14 @@ ALL_TOOLS: list = (
 
 __all__ = [
     "ALL_TOOLS",
-    "INFO_TOOLS", "SEARCH_TOOLS", "KNOWLEDGE_TOOLS",
-    "COMPUTATION_TOOLS", "FILE_TOOLS", "DATABASE_TOOLS",
-    "COMMUNICATION_TOOLS", "INTEGRATION_TOOLS", "SAFETY_TOOLS",
+    "INFO_TOOLS",
+    "SEARCH_TOOLS",
+    "KNOWLEDGE_TOOLS",
+    "COMPUTATION_TOOLS",
+    "FILE_TOOLS",
+    "DATABASE_TOOLS",
+    "COMMUNICATION_TOOLS",
+    "INTEGRATION_TOOLS",
+    "SAFETY_TOOLS",
     "UTILITY_TOOLS",
 ]

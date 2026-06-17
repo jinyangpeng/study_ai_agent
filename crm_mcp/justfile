@@ -1,0 +1,92 @@
+# CRM MCP Service - justfile
+#
+# 用法:
+#   just             - 显示帮助
+#   just install     - 创建虚拟环境 + 安装包（editable）
+#   just run         - 启动服务（streamable_http，端口 8001）
+#   just inspect     - 启动 MCP Inspector（自动拉起服务，自动清理）
+#   just smoke       - 跑冒烟测试
+#   just lint        - ruff check
+#   just fmt         - ruff format
+#   just clean       - 清理 __pycache__ + 临时数据
+#
+# 环境变量:
+#   PORT  - 启动端口（默认 8001）
+#           例: just run       -> 8001
+#               just run PORT=8002
+#               just inspect PORT=8002
+
+# 跨平台 venv 路径（用 Python 计算，避免 just 比较运算符需要 unstable 特性）
+set windows-shell := ["C:\\Program Files\\Git\\bin\\bash.exe", "-c"]
+venv_dir := ".venv"
+python_exe := `python -c "import os; print(r'.venv\Scripts\python.exe' if os.name == 'nt' else '.venv/bin/python', end='')"`
+port := env_var_or_default("PORT", "8001")
+
+# 默认：显示帮助
+default: help
+
+# 显示帮助
+help:
+    @echo "CRM MCP Service - just targets:"
+    @echo "  install   - create venv + pip install -e ."
+    @echo "  run       - start FastMCP server (streamable_http, port {{port}})"
+    @echo "  inspect   - start MCP Inspector (auto-stops server on exit)"
+    @echo "  smoke     - run smoke test"
+    @echo "  lint      - ruff check"
+    @echo "  fmt       - ruff format"
+    @echo "  clean     - remove caches + runtime data file"
+
+# 创建虚拟环境（幂等）
+venv:
+    @python -c "import os, subprocess, sys; sys.stdout.reconfigure(encoding='utf-8'); v=r'{{venv_dir}}'; (print('[skip] venv already exists') if os.path.exists(v) else (subprocess.check_call([sys.executable, '-m', 'venv', v]), print('[ok] venv created')))"
+
+# 安装依赖（自动先创建 venv）
+install: venv
+    "{{python_exe}}" -m pip install -e . ruff
+
+# 启动服务
+run:
+    CRM_MCP_PORT={{port}} "{{python_exe}}" -m crm_mcp
+
+# 启动 MCP Inspector（自动拉起服务，Inspector 退出后自动清理）
+# 用法:
+#   just inspect              (默认 :{{port}})
+#   just inspect PORT=8002
+#
+# 注意: bash 变量 ($PORT/$URL/$PY/$!) 与 just 变量 ({{port}}/{{python_exe}}) 不同名,
+#       因此 just 不会替换, $XXX 直接交给 bash 求值。
+inspect:
+    @PORT={{port}}; \
+    URL="http://localhost:${PORT}/mcp"; \
+    PY="{{python_exe}}"; \
+    echo "Starting CRM MCP server on :${PORT}..."; \
+    CRM_MCP_PORT=${PORT} "${PY}" -m crm_mcp & \
+    SERVER_PID=$!; \
+    trap 'kill ${SERVER_PID} 2>/dev/null || true' EXIT INT; \
+    for i in $(seq 1 30); do \
+      (echo > /dev/tcp/127.0.0.1/${PORT}) 2>/dev/null && { echo "[ok] server up"; break; }; \
+      sleep 0.5; \
+    done; \
+    echo ""; \
+    echo "Launching MCP Inspector..."; \
+    echo "  UI:  http://localhost:6274"; \
+    echo "  URL: ${URL}"; \
+    echo "  (Press Ctrl+C to stop both server and inspector)"; \
+    echo ""; \
+    npx -y @modelcontextprotocol/inspector "${URL}"
+
+# 冒烟测试
+smoke:
+    "{{python_exe}}" tests/smoke.py
+
+# 代码检查
+lint:
+    "{{python_exe}}" -m ruff check src tests
+
+# 格式化
+fmt:
+    "{{python_exe}}" -m ruff format src tests
+
+# 清理
+clean:
+    @"{{python_exe}}" -c "import shutil, os; [shutil.rmtree(p, ignore_errors=True) for p in ['src/crm_mcp/__pycache__', 'src/crm_mcp/tools/__pycache__', 'tests/__pycache__'] if os.path.exists(p)]; [os.remove(p) for p in ['data/crm_store.json', 'data/crm_store.json.tmp'] if os.path.exists(p)]; print('[ok] cleaned')"

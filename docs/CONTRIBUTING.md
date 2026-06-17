@@ -48,7 +48,7 @@ git checkout -b feat/your-feature
 
 请遵守：
 
-- 后端遵循 `pyproject.toml` 的 ruff 配置（`make lint` / `make fmt`）
+- 后端遵循 `pyproject.toml` 的 ruff 配置（`just lint` / `just fmt`）
 - 前端遵循 `eslint.config.js`（`npm run lint`）
 - 公共模块 / Skill / Provider / Tool 加 **类型注解 + docstring**（中英文都可以，和现有风格保持一致）
 - 不要在生产代码里 `print`；走 `logging`
@@ -57,7 +57,7 @@ git checkout -b feat/your-feature
 ### 3. 改测试
 
 - 新增 / 修改的功能 **必须** 配单测
-- 跑：`make lint && pytest`
+- 跑：`just lint && pytest`
 - 前端：`npm run lint && npm run build`
 
 ### 4. 提交信息

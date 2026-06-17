@@ -8,6 +8,7 @@
 这样 ``duckduckgo-search`` 库创建的 ``DDGS`` 实例会在 with 块内读到代理 env，
 with 块外立即还原，LLM 供应商调用不受影响。
 """
+
 # -*- coding: utf-8 -*-
 import logging
 

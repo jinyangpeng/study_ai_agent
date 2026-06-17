@@ -5,6 +5,7 @@
 否则 uvicorn 默认的 ProactorEventLoop 会让 lifespan 里的连接池
 启动直接挂掉。Linux / macOS 走 :func:`asyncio.DefaultEventLoop`。
 """
+
 import asyncio
 import selectors
 import sys

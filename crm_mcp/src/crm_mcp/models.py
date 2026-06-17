@@ -6,6 +6,7 @@
 2. **Pydantic v2** —— ``model_config = ConfigDict(...)`` + ``field_validator``。
 3. **ID 自管理** —— 不接外部发号器，由 store 统一生成 ``C-{n}`` / ``CO-{n}`` 前缀。
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -253,9 +254,7 @@ class OpportunityCreate(BaseModel):
     stage: OpportunityStage = Field(default=OpportunityStage.DISCOVERY)
     amount: float = Field(default=0.0, ge=0, description="商机金额（元）")
     currency: str = Field(default="CNY", min_length=3, max_length=3, description="货币代码（ISO 4217）")
-    probability: int = Field(
-        default=10, ge=0, le=100, description="赢率百分比（0-100）"
-    )
+    probability: int = Field(default=10, ge=0, le=100, description="赢率百分比（0-100）")
     priority: Priority = Field(default=Priority.MEDIUM)
     expected_close_date: Optional[datetime] = Field(default=None, description="预计成交日期")
     description: Optional[str] = Field(default=None, max_length=2000)
@@ -386,9 +385,7 @@ class ListQuery(BaseModel):
     sort_by: Optional[str] = Field(
         default=None, max_length=30, description="排序字段（如 created_at / updated_at / name）"
     )
-    sort_order: Optional[str] = Field(
-        default="desc", pattern="^(asc|desc)$", description="排序方向"
-    )
+    sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$", description="排序方向")
 
 
 __all__ = [

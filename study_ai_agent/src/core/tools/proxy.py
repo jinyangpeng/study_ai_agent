@@ -29,6 +29,7 @@ Python 默认不读系统代理（不像浏览器）。``requests`` / ``httpx`` 
   ``wikipedia,duckduckgo_search``。大小写不敏感、首尾空白忽略。
   tool 名 = ``BaseTool.name``（通常 langchain 工具的 ``name`` 字段）。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -42,6 +43,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # 内部：env 读取（不缓存，env 可能动态改）
 # ---------------------------------------------------------------------------
+
 
 def _read_proxy_url() -> str:
     """读取代理 URL，优先 ``TOOL_HTTP_PROXY``，回退到 ``HTTP_PROXY``。"""

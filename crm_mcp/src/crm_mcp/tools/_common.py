@@ -5,6 +5,7 @@
 - ``safe_tool_call`` 装饰器：把任何异常走 :func:`crm_mcp.formatters.format_error` 渲染成可读字符串
 - ``register(mcp)`` 由各 entity tool 模块实现
 """
+
 from __future__ import annotations
 
 import functools
@@ -61,6 +62,7 @@ def safe_tool_call(fn: Callable[..., str]) -> Callable[..., str]:
     放在工具函数最外层（注册到 ``@mcp.tool`` 之前），确保不破坏
     FastMCP 期望的 async 签名。
     """
+
     @functools.wraps(fn)
     async def wrapper(*args, **kwargs):
         try:

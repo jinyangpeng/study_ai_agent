@@ -3,6 +3,7 @@
 MCP 工具默认返回 ``str``，由 LLM 消费。Markdown 适合人读 / 简单 LLM 提示；
 JSON 适合"模型→代码"二次处理。本模块集中做这件事，避免在每个 tool 里散落。
 """
+
 from __future__ import annotations
 
 import json
@@ -75,8 +76,7 @@ def paginate(
 
 
 def apply_filters(
-    items: Iterable[Customer] | Iterable[Contact] | Iterable[Lead]
-    | Iterable[Opportunity] | Iterable[Activity],
+    items: Iterable[Customer] | Iterable[Contact] | Iterable[Lead] | Iterable[Opportunity] | Iterable[Activity],
     *,
     query: str | None = None,
     status: Any = None,
@@ -139,8 +139,7 @@ def render_contact_md(co: Contact) -> str:
         f"- **职位**: {co.title or '—'}\n"
         f"- **邮箱**: {co.email or '—'} | **电话**: {co.phone or '—'}\n"
         f"- **主要联系人**: {'是' if co.is_primary else '否'}\n"
-        f"- **负责人**: {co.owner or '—'}\n"
-        + (f"- **备注**: {co.notes}\n" if co.notes else "")
+        f"- **负责人**: {co.owner or '—'}\n" + (f"- **备注**: {co.notes}\n" if co.notes else "")
     )
 
 
@@ -179,8 +178,7 @@ def render_activity_md(a: Activity) -> str:
         f"lead={a.lead_id or '—'} | opportunity={a.opportunity_id or '—'}\n"
         f"- **截止**: {_fmt_dt(a.due_at)} | **完成**: {_fmt_dt(a.completed_at)}\n"
         f"- **负责人**: {a.owner or '—'}\n"
-        f"- **创建**: {_fmt_dt(a.created_at)}\n"
-        + (f"\n{a.description}\n" if a.description else "")
+        f"- **创建**: {_fmt_dt(a.created_at)}\n" + (f"\n{a.description}\n" if a.description else "")
     )
 
 
@@ -232,10 +230,7 @@ def render_list_md(
     meta: dict[str, Any],
 ) -> str:
     """列表响应：标题 + 分页摘要 + 各条目 Markdown 块。"""
-    header = (
-        f"## {title} (total={meta['total']}, count={meta['count']}, "
-        f"offset={meta['offset']}, limit={meta['limit']}"
-    )
+    header = f"## {title} (total={meta['total']}, count={meta['count']}, offset={meta['offset']}, limit={meta['limit']}"
     if meta.get("has_more"):
         header += f", next_offset={meta['next_offset']}"
     header += ")"
@@ -285,10 +280,7 @@ def render_response(
         return to_json(
             {
                 "meta": meta,
-                "data": [
-                    it.model_dump(mode="json") if hasattr(it, "model_dump") else it
-                    for it in items
-                ],
+                "data": [it.model_dump(mode="json") if hasattr(it, "model_dump") else it for it in items],
             }
         )
 

@@ -2,6 +2,7 @@
 
 各文件按实体拆分；统一在 :mod:`crm_mcp.server` 里 ``register(mcp)`` 全部注册。
 """
+
 from __future__ import annotations
 
 from crm_mcp.tools import (

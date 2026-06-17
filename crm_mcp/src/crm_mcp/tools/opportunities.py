@@ -1,4 +1,5 @@
 """商机 (Opportunity) MCP 工具集。"""
+
 from __future__ import annotations
 
 import logging

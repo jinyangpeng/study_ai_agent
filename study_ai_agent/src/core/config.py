@@ -11,6 +11,7 @@
 （环境变量 ``*_BASE_URL`` 可覆盖），由 :class:`BaseModelProvider` 子类在
 构造 chat model 时按 ``config.base_url or settings.<X>_BASE_URL`` 解析。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -59,7 +60,7 @@ agent_config = AgentConfig(
     # ``qwen-turbo``（默认 / 免费档可访问）；想要更强推理可以选
     # ``qwen-plus`` / ``qwen-max``，但部分地域 / 套餐可能未开通。
     qwen=ModelConfig(
-        model_name="qwen3-14b",
+        model_name="qwen-flash",
         priority=1,
         base_url=settings.DASHSCOPE_BASE_URL,
     ),

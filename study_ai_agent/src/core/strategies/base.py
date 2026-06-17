@@ -20,6 +20,7 @@
   / :func:`extract_structured`）放在基类模块 —— 三个策略都要用，
   避免在每个策略文件里复制粘贴。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -123,9 +124,7 @@ def extract_structured(
     last = messages[-1] if messages else None
     text = getattr(last, "text", lambda: getattr(last, "content", ""))()
     if isinstance(text, list):
-        text = "".join(
-            part.get("text", "") for part in text if isinstance(part, dict)
-        )
+        text = "".join(part.get("text", "") for part in text if isinstance(part, dict))
     return model_cls.model_validate_json(str(text))
 
 
@@ -143,9 +142,5 @@ def extract_text_from_message(message: Optional[BaseMessage]) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        return "".join(
-            part.get("text", "")
-            for part in content
-            if isinstance(part, dict)
-        )
+        return "".join(part.get("text", "") for part in content if isinstance(part, dict))
     return str(content)

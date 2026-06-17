@@ -1,0 +1,88 @@
+# study_ai_agent - justfile
+#
+# 用法: just <命令>
+# 类似前端 package.json 的 scripts
+#
+# 常用命令:
+#   just           - 显示帮助
+#   just init      - 一键初始化（venv + 依赖 + .env）
+#   just venv      - 仅创建虚拟环境
+#   just install   - 安装项目依赖
+#   just dev       - 以开发环境运行
+#   just prod      - 以生产环境运行
+#   just lint      - 代码检查（ruff）
+#   just fmt       - 代码格式化（ruff）
+#   just clean     - 清理缓存和临时文件
+#   just env-dev   - 创建开发环境 .env 文件
+#   just env-prod  - 创建生产环境 .env 文件
+
+# 跨平台 venv 路径（用 Python 计算，避免 just 比较运算符需要 unstable 特性）
+set windows-shell := ["C:\\Program Files\\Git\\bin\\bash.exe", "-c"]
+venv_dir := ".venv"
+python_exe := `python -c "import os; print(r'.venv\Scripts\python.exe' if os.name == 'nt' else '.venv/bin/python', end='')"`
+env_dev := "development"
+env_prod := "production"
+
+# 默认命令：显示帮助
+default: help
+
+# 显示帮助
+help:
+    @echo "可用命令:"
+    @echo "  just init      - 一键初始化项目（虚拟环境 + 依赖 + .env）"
+    @echo "  just venv      - 创建虚拟环境"
+    @echo "  just install   - 安装项目依赖"
+    @echo "  just dev       - 以开发环境运行项目"
+    @echo "  just prod      - 以生产环境运行项目"
+    @echo "  just lint      - 代码检查（ruff）"
+    @echo "  just fmt       - 代码格式化（ruff）"
+    @echo "  just clean     - 清理缓存和临时文件"
+    @echo "  just env-dev   - 创建开发环境 .env 文件"
+    @echo "  just env-prod  - 创建生产环境 .env 文件"
+
+# 一键初始化
+init: venv install env-dev env-prod
+    @echo ""
+    @echo "=========================================="
+    @echo "init done!"
+    @echo ""
+    @echo "next:"
+    @echo "  1. fill API keys in .env.development"
+    @echo "  2. run: just dev"
+    @echo "=========================================="
+
+# 创建虚拟环境（幂等）
+venv:
+    @python -c "import os, subprocess, sys; sys.stdout.reconfigure(encoding='utf-8'); v=r'{{venv_dir}}'; (print('[skip] venv already exists') if os.path.exists(v) else (subprocess.check_call([sys.executable, '-m', 'venv', v]), print('[ok] venv created')))"
+
+# 安装依赖
+install: venv
+    "{{python_exe}}" -m pip install -e ".[dev]"
+
+# 开发环境运行（跨平台：通过 Python runpy 注入 ENV，避免 Windows cmd 不支持 ENV=val 前缀）
+dev:
+    "{{python_exe}}" -c "import os, runpy; os.environ['ENV']='{{env_dev}}'; runpy.run_path('main.py', run_name='__main__')"
+
+# 生产环境运行
+prod:
+    "{{python_exe}}" -c "import os, runpy; os.environ['ENV']='{{env_prod}}'; runpy.run_path('main.py', run_name='__main__')"
+
+# 代码检查
+lint:
+    "{{python_exe}}" -m ruff check src cli main.py
+
+# 代码格式化
+fmt:
+    "{{python_exe}}" -m ruff format src cli main.py
+
+# 清理
+clean:
+    @"{{python_exe}}" -c "import shutil, os, glob; [shutil.rmtree(p, ignore_errors=True) for p in ['src/__pycache__','cli/__pycache__','tests/__pycache__','.ruff_cache','dist','build','logs'] if os.path.exists(p)]; [shutil.rmtree(p, ignore_errors=True) for p in glob.glob('*.egg-info')]; print('[ok] cleaned')"
+
+# 创建开发环境 .env
+env-dev:
+    @python -c "import os; c='ENV=development\n\nAGENT_STRATEGY=priority\n\n# LLM API Keys (at least one)\nDASHSCOPE_API_KEY=\nDEEPSEEK_API_KEY=\nZAI_API_KEY=\nQIANFAN_API_KEY=\n\n# OpenAI-compatible base URLs (optional; defaults to vendor official endpoints)\n# DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1\n# DEEPSEEK_BASE_URL=https://api.deepseek.com\n# ZAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4/\n# QIANFAN_BASE_URL=https://qianfan.baidubce.com/v2\n\nLOG_LEVEL=DEBUG\n'; t='.env.development'; print('[skip] .env.development exists' if os.path.exists(t) else (open(t,'w',encoding='utf-8').write(c) or print('[ok] .env.development created, please fill in API keys')))"
+
+# 创建生产环境 .env
+env-prod:
+    @python -c "import os; c='ENV=production\n\nAGENT_STRATEGY=priority\n\n# LLM API Keys (at least one)\nDASHSCOPE_API_KEY=\nDEEPSEEK_API_KEY=\nZAI_API_KEY=\nQIANFAN_API_KEY=\n\n# OpenAI-compatible base URLs (optional)\n# DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1\n# DEEPSEEK_BASE_URL=https://api.deepseek.com\n# ZAI_BASE_URL=https://open.bigmodel.cn/api/paas/v4/\n# QIANFAN_BASE_URL=https://qianfan.baidubce.com/v2\n\nLOG_LEVEL=INFO\n'; t='.env.production'; print('[skip] .env.production exists' if os.path.exists(t) else (open(t,'w',encoding='utf-8').write(c) or print('[ok] .env.production created, please fill in API keys')))"

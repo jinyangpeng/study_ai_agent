@@ -11,6 +11,7 @@ HITL 策略
 空 dict —— read-only agent 没有副作用，所以不需要任何审批门禁。
 前端可以把它跑成"无中断"模式。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -34,10 +35,7 @@ class ResearchSkill(BaseSkill):
 
     id: str = "research"
     name: str = "深度研究智能体"
-    description: str = (
-        "面向研究 / 资料整合任务的智能体：搜索、抓取、阅读、引用、综合。"
-        "纯只读，不会修改文件或执行命令。"
-    )
+    description: str = "面向研究 / 资料整合任务的智能体：搜索、抓取、阅读、引用、综合。纯只读，不会修改文件或执行命令。"
 
     # 走 PERA：拆解 -> 检索 -> 审计（是否覆盖了所有子问题、引用是否可靠）。
     strategy: str = "p_e_r_a"
@@ -98,11 +96,7 @@ class ResearchSkill(BaseSkill):
     def tools(self) -> list["BaseTool"]:
         """研究智能体的工具集 —— 搜索、知识、计算、信息、安全。"""
         return (
-            list(SEARCH_TOOLS)
-            + list(KNOWLEDGE_TOOLS)
-            + list(COMPUTATION_TOOLS)
-            + list(INFO_TOOLS)
-            + list(SAFETY_TOOLS)
+            list(SEARCH_TOOLS) + list(KNOWLEDGE_TOOLS) + list(COMPUTATION_TOOLS) + list(INFO_TOOLS) + list(SAFETY_TOOLS)
         )
 
     @property

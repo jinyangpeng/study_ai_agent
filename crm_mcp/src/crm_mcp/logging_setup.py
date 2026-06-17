@@ -2,6 +2,7 @@
 
 复用了 study_ai_agent 的同款配色 / 格式风格，避免在多服务环境下视觉割裂。
 """
+
 from __future__ import annotations
 
 import logging

@@ -9,6 +9,7 @@
   - tools/call（拿真实响应）
   - resources/read
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -132,16 +133,12 @@ async def main() -> int:
             new_id = new["id"]
             _ok("created", new_id)
 
-            r4 = await session.call_tool(
-                "crm_delete_customer", {"customer_id": new_id}
-            )
+            r4 = await session.call_tool("crm_delete_customer", {"customer_id": new_id})
             _ok("deleted", r4.content[0].text)
 
             # ---- 8) error path: delete non-existent ----
             _bar("8) error path  crm_delete_customer('C-999999')")
-            r5 = await session.call_tool(
-                "crm_delete_customer", {"customer_id": "C-999999"}
-            )
+            r5 = await session.call_tool("crm_delete_customer", {"customer_id": "C-999999"})
             text5 = r5.content[0].text
             is_error_flag = r5.isError
             has_error_prefix = text5.startswith("Error [CRM_")

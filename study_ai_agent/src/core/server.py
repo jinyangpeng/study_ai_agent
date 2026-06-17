@@ -41,6 +41,7 @@ LangChain 1.x 的 ``create_agent(response_format=Plan/Review)`` 会在图里
 调用的全部相关事件 (``TOOL_CALL_START/ARGS/END/RESULT``) 屏蔽掉，让协议
 流更干净。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -59,6 +60,7 @@ from __future__ import annotations
 # ---------------------------------------------------------------------------
 import asyncio  # noqa: E402
 import sys as _sys  # noqa: E402
+
 if _sys.platform == "win32":  # pragma: no cover
     import asyncio as _asyncio  # noqa: E402
     import warnings as _warnings  # noqa: E402
@@ -66,9 +68,7 @@ if _sys.platform == "win32":  # pragma: no cover
     with _warnings.catch_warnings():
         _warnings.simplefilter("ignore", DeprecationWarning)
         try:
-            _asyncio.set_event_loop_policy(
-                _asyncio.WindowsSelectorEventLoopPolicy()
-            )
+            _asyncio.set_event_loop_policy(_asyncio.WindowsSelectorEventLoopPolicy())
         except AttributeError:
             pass
     del _warnings
@@ -129,10 +129,7 @@ def _compiled_graph_for(skill_id: str):
     if skill_id not in registry:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Unknown skill '{skill_id}'. "
-                f"Available: {sorted(registry.keys())}"
-            ),
+            detail=(f"Unknown skill '{skill_id}'. Available: {sorted(registry.keys())}"),
         )
     skill = registry[skill_id]
     return skill, build_graph(skill)
@@ -390,9 +387,7 @@ def _lc_message_to_agui(msg: BaseMessage, idx: int) -> dict[str, Any]:
                     "name": tc.get("name", ""),
                     # AG-UI ``ToolCall.function.arguments`` 是 str（JSON 字符串）
                     "arguments": (
-                        tc.get("args")
-                        if isinstance(tc.get("args"), str)
-                        else _safe_json_dumps(tc.get("args", {}))
+                        tc.get("args") if isinstance(tc.get("args"), str) else _safe_json_dumps(tc.get("args", {}))
                     ),
                 },
             }
@@ -479,10 +474,7 @@ async def get_thread_state(thread_id: str) -> dict[str, Any]:
             detail=f"Thread not found: {thread_id}",
         )
 
-    messages = [
-        _lc_message_to_agui(m, idx)
-        for idx, m in enumerate(state["messages"])
-    ]
+    messages = [_lc_message_to_agui(m, idx) for idx, m in enumerate(state["messages"])]
     return {
         "thread_id": thread_id,
         "checkpoint_id": state["checkpoint_id"],

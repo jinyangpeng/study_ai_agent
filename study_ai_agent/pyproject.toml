@@ -34,6 +34,12 @@ dependencies = [
     "langgraph>=1.2.4",
     "langgraph-checkpoint>=4.1.1",
     "langgraph-checkpoint-postgres>=3.1.0",
+    # langgraph-checkpoint-postgres 走 psycopg 跟 Postgres 通信。
+    # 默认的 psycopg（pure-Python）需要系统装 libpq，Windows 上经常缺失导致
+    # `ImportError: no pq wrapper available`。[binary] extra 自带 libpq wheel，
+    # 跨平台开箱即用；本机已用 Docker 起 Postgres 不影响，psycopg-binary 只是
+    # 客户端，连接的 server 仍是容器里的 PG。
+    "psycopg[binary]>=3.2",
 
     # ---- Web 服务 ----
     "fastapi>=0.136.3",

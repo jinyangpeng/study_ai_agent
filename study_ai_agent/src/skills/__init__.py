@@ -10,6 +10,7 @@
 当前选 ``"research"``，因为它无副作用（不需要审批），适合作为起步 /
 教学场景。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

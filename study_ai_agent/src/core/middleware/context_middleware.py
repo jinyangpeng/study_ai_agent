@@ -4,6 +4,7 @@
 :class:`AgentMiddleware` 子类塞进来。保留一个空 list（而不是连模块都没有），
 是为了让注册表能无脑引用这个符号。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

@@ -1,14 +1,9 @@
 {
-  "version": 1,
-  "saved_at": "2026-06-17T09:10:50.196171+00:00",
   "customers": {
-    "_seq": 9,
+    "_seq": 5,
     "items": {
       "C-000001": {
         "id": "C-000001",
-        "created_at": "2025-02-12T03:21:11Z",
-        "updated_at": "2025-09-04T07:11:08Z",
-        "owner": "张磊",
         "name": "蓝芯科技股份有限公司",
         "industry": "internet",
         "tier": "strategic",
@@ -18,13 +13,13 @@
         "address": "上海市浦东新区张江高科园区博云路 2 号",
         "annual_revenue": 1200000000.0,
         "employee_count": 850,
-        "notes": "AI Agent 首批灯塔客户；CTO 亲自站台。"
+        "notes": "AI Agent 首批灯塔客户；CTO 亲自站台。",
+        "owner": "张磊",
+        "created_at": "2025-02-12T03:21:11+00:00",
+        "updated_at": "2025-09-04T07:11:08+00:00"
       },
       "C-000002": {
         "id": "C-000002",
-        "created_at": "2025-03-08T05:42:30Z",
-        "updated_at": "2025-08-22T09:15:22Z",
-        "owner": "李婷",
         "name": "明远金融集团",
         "industry": "finance",
         "tier": "key",
@@ -34,13 +29,13 @@
         "address": "北京市朝阳区国贸三期 B 座 28 层",
         "annual_revenue": 580000000.0,
         "employee_count": 320,
-        "notes": "合规要求高；所有方案需法务预审。"
+        "notes": "合规要求高；所有方案需法务预审。",
+        "owner": "李婷",
+        "created_at": "2025-03-08T05:42:30+00:00",
+        "updated_at": "2025-08-22T09:15:22+00:00"
       },
       "C-000003": {
         "id": "C-000003",
-        "created_at": "2025-05-19T08:12:09Z",
-        "updated_at": "2025-10-01T11:00:00Z",
-        "owner": "王浩",
         "name": "九州制造有限公司",
         "industry": "manufacturing",
         "tier": "standard",
@@ -50,13 +45,13 @@
         "address": "深圳市南山区高新南一道科兴科学园 8 栋",
         "annual_revenue": 230000000.0,
         "employee_count": 540,
-        "notes": "智能制造场景；关注预测性维护。"
+        "notes": "智能制造场景；关注预测性维护。",
+        "owner": "王浩",
+        "created_at": "2025-05-19T08:12:09+00:00",
+        "updated_at": "2025-10-01T11:00:00+00:00"
       },
       "C-000004": {
         "id": "C-000004",
-        "created_at": "2024-11-30T02:00:00Z",
-        "updated_at": "2025-04-15T03:30:00Z",
-        "owner": "张磊",
         "name": "青藤教育科技",
         "industry": "education",
         "tier": "standard",
@@ -66,13 +61,13 @@
         "address": "杭州市余杭区文一西路 1818 号",
         "annual_revenue": 80000000.0,
         "employee_count": 120,
-        "notes": "已 6 个月无互动；需重新激活。"
+        "notes": "已 6 个月无互动；需重新激活。",
+        "owner": "张磊",
+        "created_at": "2024-11-30T02:00:00+00:00",
+        "updated_at": "2025-04-15T03:30:00+00:00"
       },
       "C-000005": {
         "id": "C-000005",
-        "created_at": "2025-01-15T06:00:00Z",
-        "updated_at": "2025-10-10T08:00:00Z",
-        "owner": "李婷",
         "name": "云海物流股份",
         "industry": "logistics",
         "tier": "key",
@@ -82,50 +77,18 @@
         "address": "南京市江宁区苏源大道 19 号",
         "annual_revenue": 410000000.0,
         "employee_count": 670,
-        "notes": "路线优化 PoC 已完成；进入扩展阶段。"
-      },
-      "C-000007": {
-        "id": "C-000007",
-        "created_at": "2026-06-17T07:20:20.724682Z",
-        "updated_at": "2026-06-17T07:20:20.724682Z",
-        "owner": "张磊",
-        "name": "云栖电商",
-        "industry": "retail",
-        "tier": "standard",
-        "status": "prospect",
-        "website": null,
-        "phone": "13900000001",
-        "address": null,
-        "annual_revenue": 380000.0,
-        "employee_count": null,
-        "notes": "由线索 L-000001 转化。由蓝芯科技 CTO 推荐；下周一会议。"
-      },
-      "C-000009": {
-        "id": "C-000009",
-        "created_at": "2026-06-17T07:24:31.449003Z",
-        "updated_at": "2026-06-17T07:24:31.449003Z",
-        "owner": "张磊",
-        "name": "云栖电商",
-        "industry": "retail",
-        "tier": "standard",
-        "status": "prospect",
-        "website": null,
-        "phone": "13900000001",
-        "address": null,
-        "annual_revenue": 380000.0,
-        "employee_count": null,
-        "notes": "由线索 L-000001 转化。由蓝芯科技 CTO 推荐；下周一会议。"
+        "notes": "路线优化 PoC 已完成；进入扩展阶段。",
+        "owner": "李婷",
+        "created_at": "2025-01-15T06:00:00+00:00",
+        "updated_at": "2025-10-10T08:00:00+00:00"
       }
     }
   },
   "contacts": {
-    "_seq": 9,
+    "_seq": 7,
     "items": {
       "CT-000001": {
         "id": "CT-000001",
-        "created_at": "2025-02-12T03:25:00Z",
-        "updated_at": "2025-09-04T07:11:08Z",
-        "owner": "张磊",
         "customer_id": "C-000001",
         "full_name": "陈昊",
         "title": "CTO",
@@ -134,13 +97,13 @@
         "phone": "13800000001",
         "linkedin": "https://www.linkedin.com/in/chenhao-bluelark",
         "is_primary": true,
-        "notes": "技术决策链核心；偏好工程化讲解。"
+        "notes": "技术决策链核心；偏好工程化讲解。",
+        "owner": "张磊",
+        "created_at": "2025-02-12T03:25:00+00:00",
+        "updated_at": "2025-09-04T07:11:08+00:00"
       },
       "CT-000002": {
         "id": "CT-000002",
-        "created_at": "2025-02-20T05:00:00Z",
-        "updated_at": "2025-09-04T07:11:08Z",
-        "owner": "张磊",
         "customer_id": "C-000001",
         "full_name": "苏婉",
         "title": "数据平台负责人",
@@ -149,13 +112,13 @@
         "phone": "13800000002",
         "linkedin": null,
         "is_primary": false,
-        "notes": "内部强力推动者；所有技术细节都需过她 review。"
+        "notes": "内部强力推动者；所有技术细节都需过她 review。",
+        "owner": "张磊",
+        "created_at": "2025-02-20T05:00:00+00:00",
+        "updated_at": "2025-09-04T07:11:08+00:00"
       },
       "CT-000003": {
         "id": "CT-000003",
-        "created_at": "2025-03-08T05:50:00Z",
-        "updated_at": "2025-08-22T09:15:22Z",
-        "owner": "李婷",
         "customer_id": "C-000002",
         "full_name": "吴静",
         "title": "风控总监",
@@ -164,13 +127,13 @@
         "phone": "13800000003",
         "linkedin": null,
         "is_primary": true,
-        "notes": "关注合规与可解释性。"
+        "notes": "关注合规与可解释性。",
+        "owner": "李婷",
+        "created_at": "2025-03-08T05:50:00+00:00",
+        "updated_at": "2025-08-22T09:15:22+00:00"
       },
       "CT-000004": {
         "id": "CT-000004",
-        "created_at": "2025-05-19T08:20:00Z",
-        "updated_at": "2025-10-01T11:00:00Z",
-        "owner": "王浩",
         "customer_id": "C-000003",
         "full_name": "黄海",
         "title": "数字化总经理",
@@ -179,13 +142,13 @@
         "phone": "13800000004",
         "linkedin": null,
         "is_primary": true,
-        "notes": "决策相对集中。"
+        "notes": "决策相对集中。",
+        "owner": "王浩",
+        "created_at": "2025-05-19T08:20:00+00:00",
+        "updated_at": "2025-10-01T11:00:00+00:00"
       },
       "CT-000005": {
         "id": "CT-000005",
-        "created_at": "2025-06-02T01:30:00Z",
-        "updated_at": "2025-10-01T11:00:00Z",
-        "owner": "王浩",
         "customer_id": "C-000003",
         "full_name": "潘晓",
         "title": "运维主管",
@@ -194,13 +157,13 @@
         "phone": "13800000005",
         "linkedin": null,
         "is_primary": false,
-        "notes": "负责预测性维护场景落地。"
+        "notes": "负责预测性维护场景落地。",
+        "owner": "王浩",
+        "created_at": "2025-06-02T01:30:00+00:00",
+        "updated_at": "2025-10-01T11:00:00+00:00"
       },
       "CT-000006": {
         "id": "CT-000006",
-        "created_at": "2025-01-15T06:10:00Z",
-        "updated_at": "2025-10-10T08:00:00Z",
-        "owner": "李婷",
         "customer_id": "C-000005",
         "full_name": "周林",
         "title": "CIO",
@@ -209,13 +172,13 @@
         "phone": "13800000006",
         "linkedin": null,
         "is_primary": true,
-        "notes": "推动全集团 AI 转型。"
+        "notes": "推动全集团 AI 转型。",
+        "owner": "李婷",
+        "created_at": "2025-01-15T06:10:00+00:00",
+        "updated_at": "2025-10-10T08:00:00+00:00"
       },
       "CT-000007": {
         "id": "CT-000007",
-        "created_at": "2025-02-01T03:00:00Z",
-        "updated_at": "2025-10-10T08:00:00Z",
-        "owner": "李婷",
         "customer_id": "C-000005",
         "full_name": "高芸",
         "title": "运营经理",
@@ -224,37 +187,10 @@
         "phone": "13800000007",
         "linkedin": null,
         "is_primary": false,
-        "notes": "每天调度 200+ 车辆的实际使用者。"
-      },
-      "CT-000008": {
-        "id": "CT-000008",
-        "created_at": "2026-06-17T07:20:20.724682Z",
-        "updated_at": "2026-06-17T07:20:20.724682Z",
-        "owner": "张磊",
-        "customer_id": "C-000007",
-        "full_name": "韩明",
-        "title": "技术总监",
-        "role": "other",
-        "email": "hanming@yunqi.example.com",
-        "phone": "13900000001",
-        "linkedin": null,
-        "is_primary": true,
-        "notes": "由线索转化而来。"
-      },
-      "CT-000009": {
-        "id": "CT-000009",
-        "created_at": "2026-06-17T07:24:31.449003Z",
-        "updated_at": "2026-06-17T07:24:31.449003Z",
-        "owner": "张磊",
-        "customer_id": "C-000009",
-        "full_name": "韩明",
-        "title": "技术总监",
-        "role": "other",
-        "email": "hanming@yunqi.example.com",
-        "phone": "13900000001",
-        "linkedin": null,
-        "is_primary": true,
-        "notes": "由线索转化而来。"
+        "notes": "每天调度 200+ 车辆的实际使用者。",
+        "owner": "李婷",
+        "created_at": "2025-02-01T03:00:00+00:00",
+        "updated_at": "2025-10-10T08:00:00+00:00"
       }
     }
   },
@@ -263,25 +199,22 @@
     "items": {
       "L-000001": {
         "id": "L-000001",
-        "created_at": "2025-09-10T05:00:00Z",
-        "updated_at": "2026-06-17T07:24:31.449003Z",
-        "owner": "张磊",
         "contact_name": "韩明",
         "company": "云栖电商",
         "email": "hanming@yunqi.example.com",
         "phone": "13900000001",
         "title": "技术总监",
         "source": "referral",
-        "status": "converted",
+        "status": "qualified",
         "industry": "retail",
         "estimated_value": 380000.0,
-        "notes": "由蓝芯科技 CTO 推荐；下周一会议。"
+        "notes": "由蓝芯科技 CTO 推荐；下周一会议。",
+        "owner": "张磊",
+        "created_at": "2025-09-10T05:00:00+00:00",
+        "updated_at": "2025-10-08T09:00:00+00:00"
       },
       "L-000002": {
         "id": "L-000002",
-        "created_at": "2025-09-18T07:00:00Z",
-        "updated_at": "2025-09-25T03:00:00Z",
-        "owner": "李婷",
         "contact_name": "罗雪",
         "company": "北方能源",
         "email": "luoxue@bf-energy.example.com",
@@ -291,13 +224,13 @@
         "status": "contacted",
         "industry": "energy",
         "estimated_value": 1200000.0,
-        "notes": "在 9 月行业峰会现场认识。"
+        "notes": "在 9 月行业峰会现场认识。",
+        "owner": "李婷",
+        "created_at": "2025-09-18T07:00:00+00:00",
+        "updated_at": "2025-09-25T03:00:00+00:00"
       },
       "L-000003": {
         "id": "L-000003",
-        "created_at": "2025-10-12T08:30:00Z",
-        "updated_at": "2025-10-12T08:30:00Z",
-        "owner": "王浩",
         "contact_name": "邓子轩",
         "company": "锐途汽车",
         "email": "zixuan.deng@ritu-auto.example.com",
@@ -307,13 +240,13 @@
         "status": "new",
         "industry": "manufacturing",
         "estimated_value": null,
-        "notes": "官网表单注册。"
+        "notes": "官网表单注册。",
+        "owner": "王浩",
+        "created_at": "2025-10-12T08:30:00+00:00",
+        "updated_at": "2025-10-12T08:30:00+00:00"
       },
       "L-000004": {
         "id": "L-000004",
-        "created_at": "2025-08-20T02:00:00Z",
-        "updated_at": "2025-08-30T05:00:00Z",
-        "owner": "王浩",
         "contact_name": "Sophie Chen",
         "company": "Brightway Health",
         "email": "sophie@brightway.example.com",
@@ -323,7 +256,10 @@
         "status": "unqualified",
         "industry": "healthcare",
         "estimated_value": null,
-        "notes": "预算 < 10 万，与我方产品定位不匹配。"
+        "notes": "预算 < 10 万，与我方产品定位不匹配。",
+        "owner": "王浩",
+        "created_at": "2025-08-20T02:00:00+00:00",
+        "updated_at": "2025-08-30T05:00:00+00:00"
       }
     }
   },
@@ -332,9 +268,6 @@
     "items": {
       "O-000001": {
         "id": "O-000001",
-        "created_at": "2025-08-01T03:00:00Z",
-        "updated_at": "2025-10-09T07:00:00Z",
-        "owner": "张磊",
         "name": "蓝芯科技 2025 平台扩容",
         "customer_id": "C-000001",
         "primary_contact_id": "CT-000001",
@@ -343,14 +276,14 @@
         "currency": "CNY",
         "probability": 75,
         "priority": "urgent",
-        "expected_close_date": "2025-12-15T00:00:00Z",
-        "description": "扩容 GPU 集群 + 续约企业版。"
+        "expected_close_date": "2025-12-15T00:00:00+00:00",
+        "description": "扩容 GPU 集群 + 续约企业版。",
+        "owner": "张磊",
+        "created_at": "2025-08-01T03:00:00+00:00",
+        "updated_at": "2025-10-09T07:00:00+00:00"
       },
       "O-000002": {
         "id": "O-000002",
-        "created_at": "2025-09-05T06:00:00Z",
-        "updated_at": "2025-10-11T08:00:00Z",
-        "owner": "李婷",
         "name": "明远金融智能风控 PoC",
         "customer_id": "C-000002",
         "primary_contact_id": "CT-000003",
@@ -359,14 +292,14 @@
         "currency": "CNY",
         "probability": 50,
         "priority": "high",
-        "expected_close_date": "2025-12-31T00:00:00Z",
-        "description": "8 周 PoC，覆盖反欺诈场景。"
+        "expected_close_date": "2025-12-31T00:00:00+00:00",
+        "description": "8 周 PoC，覆盖反欺诈场景。",
+        "owner": "李婷",
+        "created_at": "2025-09-05T06:00:00+00:00",
+        "updated_at": "2025-10-11T08:00:00+00:00"
       },
       "O-000003": {
         "id": "O-000003",
-        "created_at": "2025-09-22T01:00:00Z",
-        "updated_at": "2025-10-05T03:00:00Z",
-        "owner": "王浩",
         "name": "九州制造预测性维护二期",
         "customer_id": "C-000003",
         "primary_contact_id": "CT-000005",
@@ -375,14 +308,14 @@
         "currency": "CNY",
         "probability": 30,
         "priority": "medium",
-        "expected_close_date": "2026-02-28T00:00:00Z",
-        "description": "从试点扩展到 3 条产线。"
+        "expected_close_date": "2026-02-28T00:00:00+00:00",
+        "description": "从试点扩展到 3 条产线。",
+        "owner": "王浩",
+        "created_at": "2025-09-22T01:00:00+00:00",
+        "updated_at": "2025-10-05T03:00:00+00:00"
       },
       "O-000004": {
         "id": "O-000004",
-        "created_at": "2025-06-12T05:00:00Z",
-        "updated_at": "2025-10-01T08:00:00Z",
-        "owner": "李婷",
         "name": "云海物流全集团部署",
         "customer_id": "C-000005",
         "primary_contact_id": "CT-000006",
@@ -391,8 +324,11 @@
         "currency": "CNY",
         "probability": 100,
         "priority": "high",
-        "expected_close_date": "2025-10-01T00:00:00Z",
-        "description": "已完成签约，进入交付阶段。"
+        "expected_close_date": "2025-10-01T00:00:00+00:00",
+        "description": "已完成签约，进入交付阶段。",
+        "owner": "李婷",
+        "created_at": "2025-06-12T05:00:00+00:00",
+        "updated_at": "2025-10-01T08:00:00+00:00"
       }
     }
   },
@@ -401,9 +337,6 @@
     "items": {
       "A-000001": {
         "id": "A-000001",
-        "created_at": "2025-09-28T03:00:00Z",
-        "updated_at": "2025-10-08T08:30:00Z",
-        "owner": "张磊",
         "activity_type": "meeting",
         "subject": "蓝芯科技 2025 扩容 Kickoff",
         "description": "与陈昊、苏婉对齐扩容范围、交付节奏、风险点。",
@@ -412,14 +345,14 @@
         "contact_id": "CT-000001",
         "lead_id": null,
         "opportunity_id": "O-000001",
-        "due_at": "2025-10-08T07:00:00Z",
-        "completed_at": "2025-10-08T08:30:00Z"
+        "due_at": "2025-10-08T07:00:00+00:00",
+        "completed_at": "2025-10-08T08:30:00+00:00",
+        "owner": "张磊",
+        "created_at": "2025-09-28T03:00:00+00:00",
+        "updated_at": "2025-10-08T08:30:00+00:00"
       },
       "A-000002": {
         "id": "A-000002",
-        "created_at": "2025-10-10T05:00:00Z",
-        "updated_at": "2025-10-10T05:00:00Z",
-        "owner": "李婷",
         "activity_type": "call",
         "subject": "明远金融 PoC 报价确认",
         "description": "电话对齐 PoC 价格区间和服务边界。",
@@ -428,14 +361,14 @@
         "contact_id": "CT-000003",
         "lead_id": null,
         "opportunity_id": "O-000002",
-        "due_at": "2025-10-20T06:00:00Z",
-        "completed_at": null
+        "due_at": "2025-10-20T06:00:00+00:00",
+        "completed_at": null,
+        "owner": "李婷",
+        "created_at": "2025-10-10T05:00:00+00:00",
+        "updated_at": "2025-10-10T05:00:00+00:00"
       },
       "A-000003": {
         "id": "A-000003",
-        "created_at": "2025-10-09T02:00:00Z",
-        "updated_at": "2025-10-12T03:30:00Z",
-        "owner": "王浩",
         "activity_type": "email",
         "subject": "九州制造二期方案初稿",
         "description": "发送方案初稿，等待黄海反馈。",
@@ -444,14 +377,14 @@
         "contact_id": "CT-000004",
         "lead_id": null,
         "opportunity_id": "O-000003",
-        "due_at": "2025-10-18T09:00:00Z",
-        "completed_at": null
+        "due_at": "2025-10-18T09:00:00+00:00",
+        "completed_at": null,
+        "owner": "王浩",
+        "created_at": "2025-10-09T02:00:00+00:00",
+        "updated_at": "2025-10-12T03:30:00+00:00"
       },
       "A-000004": {
         "id": "A-000004",
-        "created_at": "2025-10-11T01:00:00Z",
-        "updated_at": "2025-10-11T01:00:00Z",
-        "owner": "李婷",
         "activity_type": "task",
         "subject": "云海物流 交付计划评审",
         "description": "组织交付团队评审 3 周里程碑。",
@@ -460,14 +393,14 @@
         "contact_id": "CT-000006",
         "lead_id": null,
         "opportunity_id": "O-000004",
-        "due_at": "2025-10-25T07:00:00Z",
-        "completed_at": null
+        "due_at": "2025-10-25T07:00:00+00:00",
+        "completed_at": null,
+        "owner": "李婷",
+        "created_at": "2025-10-11T01:00:00+00:00",
+        "updated_at": "2025-10-11T01:00:00+00:00"
       },
       "A-000005": {
         "id": "A-000005",
-        "created_at": "2025-10-12T07:00:00Z",
-        "updated_at": "2025-10-12T07:00:00Z",
-        "owner": "张磊",
         "activity_type": "demo",
         "subject": "云栖电商产品演示",
         "description": "面向韩明的技术 demo，重点演示 agent 工具调用与可观测性。",
@@ -476,14 +409,14 @@
         "contact_id": null,
         "lead_id": "L-000001",
         "opportunity_id": null,
-        "due_at": "2025-10-22T08:00:00Z",
-        "completed_at": null
+        "due_at": "2025-10-22T08:00:00+00:00",
+        "completed_at": null,
+        "owner": "张磊",
+        "created_at": "2025-10-12T07:00:00+00:00",
+        "updated_at": "2025-10-12T07:00:00+00:00"
       },
       "A-000006": {
         "id": "A-000006",
-        "created_at": "2025-09-19T13:00:00Z",
-        "updated_at": "2025-09-19T13:00:00Z",
-        "owner": "李婷",
         "activity_type": "note",
         "subject": "北方能源触达纪要",
         "description": "邮件已发，附上白皮书。",
@@ -492,8 +425,11 @@
         "contact_id": null,
         "lead_id": "L-000002",
         "opportunity_id": null,
-        "due_at": "2025-09-20T01:00:00Z",
-        "completed_at": "2025-09-19T13:00:00Z"
+        "due_at": "2025-09-20T01:00:00+00:00",
+        "completed_at": "2025-09-19T13:00:00+00:00",
+        "owner": "李婷",
+        "created_at": "2025-09-19T13:00:00+00:00",
+        "updated_at": "2025-09-19T13:00:00+00:00"
       }
     }
   }

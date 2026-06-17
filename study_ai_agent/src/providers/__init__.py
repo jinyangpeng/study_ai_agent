@@ -10,6 +10,7 @@ Public API
     from src.providers import QianfanProvider, ZhipuAIProvider, ...
     from src.providers import ModelConfig, ChatModelBuilder, BaseModelProvider
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

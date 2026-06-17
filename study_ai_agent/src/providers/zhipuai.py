@@ -17,6 +17,7 @@ sunset + 自己实现了一层不完整的 OpenAI 协议，不支持 ``tool_choi
 
 ``base_url`` 可被环境变量 ``ZAI_BASE_URL`` 覆盖，方便走企业代理。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

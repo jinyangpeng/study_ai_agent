@@ -1,4 +1,5 @@
 """Console-script entry points (dev / prod / lint / fmt)."""
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

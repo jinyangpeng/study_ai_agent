@@ -14,6 +14,7 @@
 ----
 默认 ``streamable_http``，监听 ``CRM_MCP_HOST:CRM_MCP_PORT``（默认 0.0.0.0:8001）。
 """
+
 from __future__ import annotations
 
 import json
@@ -73,9 +74,7 @@ def build_server() -> Any:
     try:
         from mcp.server.fastmcp import FastMCP
     except ImportError as e:  # pragma: no cover - 缺包时早暴露
-        raise SystemExit(
-            "MCP SDK 未安装。请先 `pip install mcp`（建议 >=1.2）。"
-        ) from e
+        raise SystemExit("MCP SDK 未安装。请先 `pip install mcp`（建议 >=1.2）。") from e
 
     mcp = FastMCP(
         name="crm_mcp",

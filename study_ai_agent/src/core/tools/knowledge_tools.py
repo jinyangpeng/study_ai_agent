@@ -10,6 +10,7 @@ Wikipedia 工具本身不读 env var 也不会走代理（默认行为）。
 完立即还原。这样既能让 wikipedia 走代理，又不会污染 LLM 供应商等
 其他模块的请求。
 """
+
 # -*- coding: utf-8 -*-
 import logging
 

@@ -3,6 +3,7 @@
 测试可以在此注册一个自定义 :class:`AgentMiddleware` 来捕获 agent 经历的
 状态转移。默认空。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

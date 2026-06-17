@@ -23,6 +23,7 @@
 注意：注册时校验 ``name`` 非空，否则直接抛 :class:`ValueError`，避免
 后来用空 key 静默查不到。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -68,9 +69,7 @@ def register(cls: type[BaseStrategy]) -> type[BaseStrategy]:
     默认实现；生产代码应当在 import 时一次性完成注册。
     """
     if not cls.name:
-        raise ValueError(
-            f"{cls.__name__}.name 不能为空字符串，注册前请显式赋值。"
-        )
+        raise ValueError(f"{cls.__name__}.name 不能为空字符串，注册前请显式赋值。")
     if not issubclass(cls, BaseStrategy):
         raise TypeError(f"{cls.__name__} 必须继承 BaseStrategy")
     _REGISTRY[cls.name] = cls
@@ -82,9 +81,7 @@ def get(name: str) -> BaseStrategy:
     cls = _REGISTRY.get(name)
     if cls is None:
         available_names = ", ".join(sorted(_REGISTRY)) or "<empty>"
-        raise ValueError(
-            f"未知的推理策略: {name!r}。可用策略: {available_names}"
-        )
+        raise ValueError(f"未知的推理策略: {name!r}。可用策略: {available_names}")
     return cls()
 
 
@@ -98,9 +95,7 @@ def validate(name: str) -> None:
     """
     if name not in _REGISTRY:
         available_names = ", ".join(sorted(_REGISTRY)) or "<empty>"
-        raise ValueError(
-            f"未知的推理策略: {name!r}。可用策略: {available_names}"
-        )
+        raise ValueError(f"未知的推理策略: {name!r}。可用策略: {available_names}")
 
 
 def available() -> list[str]:

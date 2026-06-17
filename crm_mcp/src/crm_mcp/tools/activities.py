@@ -1,4 +1,5 @@
 """跟进活动 (Activity) MCP 工具集。"""
+
 from __future__ import annotations
 
 import logging
@@ -144,10 +145,7 @@ def register(mcp: Any) -> None:
         merged = existing.model_dump() | updates
         merged["updated_at"] = now_utc()
         # 转 completed 时自动写完成时间
-        if (
-            merged.get("status") == ActivityStatus.COMPLETED
-            and not merged.get("completed_at")
-        ):
+        if merged.get("status") == ActivityStatus.COMPLETED and not merged.get("completed_at"):
             merged["completed_at"] = now_utc()
         new_obj = Activity.model_validate(merged)
         await store.write_through(lambda: store.activities.replace(new_obj))

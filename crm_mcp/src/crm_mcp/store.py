@@ -11,6 +11,7 @@
 4. **冷启动**：第一次 ``setup()`` 时如果 ``DATA_FILE`` 不存在，从 ``SEED_FILE`` 拷贝。
 5. **schema 校验**：每次启动都把数据按 Pydantic 模型重读一遍，尽早暴露脏数据。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -224,9 +225,7 @@ class CRMStore:
         data_file.parent.mkdir(parents=True, exist_ok=True)
 
         # 写到同目录临时文件，再原子替换
-        fd, tmp_path = tempfile.mkstemp(
-            prefix=f".{data_file.name}.", suffix=".tmp", dir=str(data_file.parent)
-        )
+        fd, tmp_path = tempfile.mkstemp(prefix=f".{data_file.name}.", suffix=".tmp", dir=str(data_file.parent))
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2, default=str)

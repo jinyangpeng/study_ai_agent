@@ -5,6 +5,7 @@
 ``https://api.deepseek.com``。这里把 ``base_url`` 暴露出来，方便企业
 代理 / 跨地域场景覆盖（环境变量 ``DEEPSEEK_BASE_URL``）。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

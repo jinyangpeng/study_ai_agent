@@ -5,6 +5,7 @@
 可选 import 块保证依赖缺失时 agent 仍能存活（降级为 ``INFO_TOOLS = []``
 + 一条启动 warning）。
 """
+
 import logging
 from datetime import datetime
 

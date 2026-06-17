@@ -35,6 +35,7 @@
 * ``POSTGRES_POOL_TIMEOUT`` —— 获取连接超时（秒）
 * ``CHECKPOINTER_BACKEND`` —— ``postgres``（默认） / ``memory``
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -71,9 +72,7 @@ if sys.platform == "win32":  # pragma: no cover —— 仅 Windows 路径
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         try:
-            asyncio.set_event_loop_policy(
-                asyncio.WindowsSelectorEventLoopPolicy()
-            )
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         except AttributeError:  # 极老 Python 不存在该 policy
             pass
     del warnings
@@ -118,9 +117,7 @@ def _build_conninfo(s: Settings) -> str:
     if s.POSTGRES_KEEPALIVES:
         params.append(f"keepalives={int(s.POSTGRES_KEEPALIVES)}")
         params.append(f"keepalives_idle={int(s.POSTGRES_KEEPALIVES_IDLE)}")
-        params.append(
-            f"keepalives_interval={int(s.POSTGRES_KEEPALIVES_INTERVAL)}"
-        )
+        params.append(f"keepalives_interval={int(s.POSTGRES_KEEPALIVES_INTERVAL)}")
         params.append(f"keepalives_count={int(s.POSTGRES_KEEPALIVES_COUNT)}")
     if params:
         base = f"{base}?{'&'.join(params)}"
@@ -192,10 +189,7 @@ class CheckpointerFactory:
         self._saver: BaseCheckpointSaver | None = None
         self._backend: Backend = self._settings.CHECKPOINTER_BACKEND  # type: ignore[assignment]
         if self._backend not in ("postgres", "memory"):
-            raise ValueError(
-                f"不支持的 CHECKPOINTER_BACKEND={self._backend!r}，"
-                f"可选：postgres | memory"
-            )
+            raise ValueError(f"不支持的 CHECKPOINTER_BACKEND={self._backend!r}，可选：postgres | memory")
 
     # ------------------------------------------------------------------ #
     # 生命周期
@@ -215,10 +209,7 @@ class CheckpointerFactory:
         if self._backend == "memory":
             from langgraph.checkpoint.memory import InMemorySaver
 
-            logger.warning(
-                "CHECKPOINTER_BACKEND=memory —— 状态不会持久化，"
-                "重启即丢失，仅用于本地无 DB 调试。"
-            )
+            logger.warning("CHECKPOINTER_BACKEND=memory —— 状态不会持久化，重启即丢失，仅用于本地无 DB 调试。")
             self._saver = InMemorySaver()
             return
 
@@ -276,9 +267,7 @@ class CheckpointerFactory:
         if s.POSTGRES_SCHEMA and s.POSTGRES_SCHEMA != "public":
             try:
                 async with self._pool.connection() as conn:
-                    await conn.execute(
-                        f'CREATE SCHEMA IF NOT EXISTS "{s.POSTGRES_SCHEMA}"'
-                    )
+                    await conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{s.POSTGRES_SCHEMA}"')
             except pg_errors.InsufficientPrivilege:
                 logger.warning(
                     "当前用户无权 CREATE SCHEMA，继续使用 schema=%s（请 DBA 预创建）",
@@ -291,9 +280,7 @@ class CheckpointerFactory:
             await self._saver.setup()
         except Exception as exc:
             await self._safe_close_pool()
-            raise RuntimeError(
-                f"checkpointer.setup() 失败：{type(exc).__name__}: {exc}"
-            ) from exc
+            raise RuntimeError(f"checkpointer.setup() 失败：{type(exc).__name__}: {exc}") from exc
 
         logger.info("AsyncPostgresSaver 就绪 (schema=%s)", s.POSTGRES_SCHEMA)
 
@@ -322,8 +309,7 @@ class CheckpointerFactory:
         """
         if self._saver is None:
             raise RuntimeError(
-                "CheckpointerFactory 尚未 setup()。"
-                "请在 FastAPI lifespan startup 中先 await factory.setup()。"
+                "CheckpointerFactory 尚未 setup()。请在 FastAPI lifespan startup 中先 await factory.setup()。"
             )
         return self._saver
 
@@ -462,11 +448,7 @@ class CheckpointerFactory:
             seen.add(tid)
             msgs = (cp.checkpoint.get("channel_values") or {}).get("messages") or []
             first_user = next(
-                (
-                    _extract_text(m.content)
-                    for m in msgs
-                    if _is_human_message(m)
-                ),
+                (_extract_text(m.content) for m in msgs if _is_human_message(m)),
                 None,
             )
             out.append(
@@ -508,10 +490,10 @@ class CheckpointerFactory:
     async def lifespan(self) -> AsyncIterator[None]:
         """FastAPI lifespan 一体化包装::
 
-            @asynccontextmanager
-            async def lifespan(app: FastAPI):
-                async with checkpointer_factory.lifespan():
-                    yield
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            async with checkpointer_factory.lifespan():
+                yield
         """
         await self.setup()
         try:

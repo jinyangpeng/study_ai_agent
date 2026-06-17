@@ -5,6 +5,7 @@
 几个名字，这样调用方就不用直接依赖外部包——同时也是单一替换点，未来要换底层
 库时只改这里。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

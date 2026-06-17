@@ -8,6 +8,7 @@ psycopg3 async **必须**跑在 :class:`asyncio.SelectorEventLoop` 上；
 事件循环工厂 —— 这是 uvicorn >=0.30 的官方推荐做法，比
 ``set_event_loop_policy()`` 更稳（后者即将在 Python 3.16 移除）。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

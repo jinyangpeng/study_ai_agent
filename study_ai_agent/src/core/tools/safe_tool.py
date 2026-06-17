@@ -39,6 +39,7 @@ LLM 看到这份结构化错误就能优雅降级（"搜索服务暂不可用，
             with use_temp_env_proxy("..."):
                 return super()._run(*args, **kwargs)
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -203,6 +204,7 @@ def make_safe(tool: BaseTool) -> BaseTool:
 
     # 直接挂到实例上，不动类（避免影响其他同类工具）
     import types
+
     tool._run = types.MethodType(_safe_run, tool)
     if original_arun is not None:
         tool._arun = types.MethodType(_safe_arun, tool)

@@ -9,6 +9,7 @@ HITL 策略
 ---------
 空 dict —— read-only agent 没有副作用，所以不需要任何审批门禁。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -26,10 +27,7 @@ class QASkill(BaseSkill):
 
     id: str = "qa"
     name: str = "智能问答"
-    description: str = (
-        "面向日常问答任务的智能体：搜索、查询、快速回答用户问题。"
-        "纯只读，不会修改文件或执行命令。"
-    )
+    description: str = "面向日常问答任务的智能体：搜索、查询、快速回答用户问题。纯只读，不会修改文件或执行命令。"
 
     # 走Reflection
     strategy: str = "reflection"

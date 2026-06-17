@@ -11,6 +11,7 @@
 调用方可以显式传 ``strategy_name`` 覆盖（主要用于测试 / 临时切换），
 不传时走 skill 自己声明的策略。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

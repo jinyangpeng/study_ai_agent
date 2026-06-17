@@ -40,7 +40,7 @@ study_ai_agent/                 # ← 仓库根（monorepo）
 │   ├── tests/                  # 单元 / LLM / 集成 / 手动测试
 │   ├── pyproject.toml
 │   ├── requirements.txt
-│   └── Makefile
+│   └── justfile
 │
 ├── study_ai_agent_ui/          # React 前端（Vite + assistant-ui）
 │   ├── src/
@@ -78,7 +78,7 @@ cd study_ai_agent
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1   # Windows；POSIX 用户用 source .venv/bin/activate
 pip install -e ".[dev]"
-make env-dev                    # 生成 .env.development
+just env-dev                    # 生成 .env.development
 # 编辑 .env.development，至少填一个 LLM 的 API Key（DASHSCOPE / DEEPSEEK / ZAI / QIANFAN 任一）
 dev                             # 控制台脚本，等价于 `python main.py`，ENV=development
 

@@ -20,6 +20,7 @@
 变换（塑形），再 HITL（拦截危险工具），然后是横切关注点（日志、错误、
 持久化、路由），最后是测试插桩，让它能记录其它层实际做了什么。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -37,16 +38,16 @@ from src.core.middleware.validation_middleware import VALIDATION_MIDDLEWARES
 # 一个展开好的扁平 list，按上面文档的顺序排列。``create_agent`` 在 agent
 # 构建时遍历这个 list。
 ALL_MIDDLEWARES = (
-    SECURITY_MIDDLEWARES         # 1. 拦截 / 脱敏 PII、prompt injection
-    + CONTEXT_MIDDLEWARES        # 2. 时间戳 + 角色前置
-    + VALIDATION_MIDDLEWARES     # 3. per-tool 长度 / 格式规则
-    + TRANSFORMATION_MIDDLEWARES # 4. 空白规范化、限制响应长度
+    SECURITY_MIDDLEWARES  # 1. 拦截 / 脱敏 PII、prompt injection
+    + CONTEXT_MIDDLEWARES  # 2. 时间戳 + 角色前置
+    + VALIDATION_MIDDLEWARES  # 3. per-tool 长度 / 格式规则
+    + TRANSFORMATION_MIDDLEWARES  # 4. 空白规范化、限制响应长度
     + HUMAN_IN_LOOP_MIDDLEWARES  # 5. 危险工具的审批门禁
-    + LOGGING_MIDDLEWARES        # 6. 控制台 + 文件日志
-    + ERROR_MIDDLEWARES          # 7. 兜底异常处理
-    + PERSISTENCE_MIDDLEWARES    # 8. history.jsonl 写入
-    + ROUTING_MIDDLEWARES        # 9. 失败登记
-    + TESTING_MIDDLEWARES        # 10. 仅测试用插桩
+    + LOGGING_MIDDLEWARES  # 6. 控制台 + 文件日志
+    + ERROR_MIDDLEWARES  # 7. 兜底异常处理
+    + PERSISTENCE_MIDDLEWARES  # 8. history.jsonl 写入
+    + ROUTING_MIDDLEWARES  # 9. 失败登记
+    + TESTING_MIDDLEWARES  # 10. 仅测试用插桩
 )
 
 # ``BASE_MIDDLEWARES`` 是上面 *去掉* HITL 闸门的版本。skill 在 execute 节点构建

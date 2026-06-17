@@ -3,6 +3,7 @@
 所有异常都是 :class:`CRMError` 的子类，可以被统一的 error formatter
 捕获并格式化为 actionable 错误消息。
 """
+
 from __future__ import annotations
 
 

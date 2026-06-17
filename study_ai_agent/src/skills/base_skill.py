@@ -5,6 +5,7 @@
 本类只是把"3 个 prompt 全都默认 None，让调用方挑着覆盖"这种最常见的
 写法做成现成 API。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

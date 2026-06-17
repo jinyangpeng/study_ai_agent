@@ -2,6 +2,7 @@
 
 不是单元测试套件；只用于冒烟（启动时跑一次确认 server 健康）。
 """
+
 from __future__ import annotations
 
 import asyncio

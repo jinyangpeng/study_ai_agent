@@ -2,6 +2,7 @@
 
 集中维护所有状态、类型、优先级等离散值，避免在模型/工具里硬编码字符串。
 """
+
 from __future__ import annotations
 
 from enum import Enum
@@ -23,20 +24,20 @@ class ResponseFormat(str, Enum):
 class CustomerStatus(str, Enum):
     """客户所处的生命周期阶段。"""
 
-    PROSPECT = "prospect"          # 潜在客户
-    ACTIVE = "active"              # 活跃合作
-    DORMANT = "dormant"            # 沉默客户
-    CHURNED = "churned"            # 已流失
-    ARCHIVED = "archived"          # 归档（不再跟进）
+    PROSPECT = "prospect"  # 潜在客户
+    ACTIVE = "active"  # 活跃合作
+    DORMANT = "dormant"  # 沉默客户
+    CHURNED = "churned"  # 已流失
+    ARCHIVED = "archived"  # 归档（不再跟进）
 
 
 class CustomerTier(str, Enum):
     """客户分级。"""
 
-    STRATEGIC = "strategic"        # 战略客户
-    KEY = "key"                    # 重点客户
-    STANDARD = "standard"          # 标准客户
-    LONG_TAIL = "long_tail"        # 长尾客户
+    STRATEGIC = "strategic"  # 战略客户
+    KEY = "key"  # 重点客户
+    STANDARD = "standard"  # 标准客户
+    LONG_TAIL = "long_tail"  # 长尾客户
 
 
 class Industry(str, Enum):
@@ -60,11 +61,11 @@ class Industry(str, Enum):
 class ContactRole(str, Enum):
     """联系人在客户组织中的角色。"""
 
-    DECISION_MAKER = "decision_maker"      # 决策人
-    CHAMPION = "champion"                  # 内部支持者
-    INFLUENCER = "influencer"              # 影响者
-    USER = "user"                          # 最终用户
-    GATEKEEPER = "gatekeeper"              # 门卫/助理
+    DECISION_MAKER = "decision_maker"  # 决策人
+    CHAMPION = "champion"  # 内部支持者
+    INFLUENCER = "influencer"  # 影响者
+    USER = "user"  # 最终用户
+    GATEKEEPER = "gatekeeper"  # 门卫/助理
     OTHER = "other"
 
 

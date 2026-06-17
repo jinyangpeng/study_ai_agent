@@ -8,6 +8,7 @@ agent），也可以走 :class:`ModelFactory`（自动选供应商）。
 :class:`AgentConfig`（在 :mod:`src.core.config`）对其做了 re-export，
 方便 ``from src.core.config import ModelConfig`` 这种写法。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 

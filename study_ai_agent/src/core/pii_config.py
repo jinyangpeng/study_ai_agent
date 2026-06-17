@@ -1,13 +1,10 @@
 """PII 配置加载器 - 从 JSON 配置加载 PII 规则。"""
+
 # -*- coding: utf-8 -*-
 import json
 from pathlib import Path
 
-_CONFIG_FILE = (
-    Path(__file__).resolve().parent.parent.parent.parent
-    / "config"
-    / "pii_keywords.json"
-)
+_CONFIG_FILE = Path(__file__).resolve().parent.parent.parent.parent / "config" / "pii_keywords.json"
 
 
 def _load_pii_keywords() -> list[dict]:

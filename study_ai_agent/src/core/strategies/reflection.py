@@ -49,6 +49,7 @@
   对照 plan 审计），Reflection 关注"答案质量"（生成 → 评审 → refine
   对照原始问题评价）。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -187,11 +188,7 @@ class ReflectionStrategy(BaseStrategy):
         def _route_after_critique(state: AgentState) -> str:
             critique = state.get("critique")
             iterations = state.get("reflection_iterations", 0) or 0
-            if (
-                critique is not None
-                and critique.verdict == "revise"
-                and iterations < max_iters
-            ):
+            if critique is not None and critique.verdict == "revise" and iterations < max_iters:
                 return "refine"
             return "act"
 
@@ -221,10 +218,12 @@ class ReflectionStrategy(BaseStrategy):
         agent = create_agent(
             model=model,
             system_prompt=_resolve_prompt(
-                skill, "reflection_generate_prompt", DEFAULT_REFLECTION_GENERATE_PROMPT,
+                skill,
+                "reflection_generate_prompt",
+                DEFAULT_REFLECTION_GENERATE_PROMPT,
             ),
-            # tools=tools,
-            tools=[],
+            tools=tools,
+            # tools=[],
             middleware=middleware,
         )
 
@@ -246,7 +245,9 @@ class ReflectionStrategy(BaseStrategy):
         agent = create_agent(
             model=model,
             system_prompt=_resolve_prompt(
-                skill, "reflection_critique_prompt", DEFAULT_REFLECTION_CRITIQUE_PROMPT,
+                skill,
+                "reflection_critique_prompt",
+                DEFAULT_REFLECTION_CRITIQUE_PROMPT,
             ),
             response_format=Critique,
             tools=[],
@@ -267,10 +268,12 @@ class ReflectionStrategy(BaseStrategy):
         agent = create_agent(
             model=model,
             system_prompt=_resolve_prompt(
-                skill, "reflection_refine_prompt", DEFAULT_REFLECTION_REFINE_PROMPT,
+                skill,
+                "reflection_refine_prompt",
+                DEFAULT_REFLECTION_REFINE_PROMPT,
             ),
-            # tools=tools,
-            tools=[],
+            tools=tools,
+            # tools=[],
             middleware=middleware,
         )
 
@@ -293,9 +296,7 @@ class ReflectionStrategy(BaseStrategy):
                     + "\n\nNow rewrite the draft to address every concrete issue."
                 )
             )
-            result = await agent.ainvoke(
-                {"messages": state["messages"] + [refine_msg]}
-            )
+            result = await agent.ainvoke({"messages": state["messages"] + [refine_msg]})
             new_last = result["messages"][-1] if result.get("messages") else None
             new_draft = extract_text_from_message(new_last)
             return {

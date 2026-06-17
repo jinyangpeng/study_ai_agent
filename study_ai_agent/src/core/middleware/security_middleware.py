@@ -12,6 +12,7 @@ LangChain 1.x 的 :class:`PIIMiddleware` 本身是 :class:`pydantic.BaseModel`
 ``pii_keywords.json`` 里写错一个字段名，启动时立刻报清晰的校验错误，
 而不是运行时崩。
 """
+
 import logging
 
 from langchain.agents.middleware import PIIMiddleware
@@ -45,9 +46,7 @@ def _build_pii_middlewares() -> list:
     for cfg in PII_KEYWORDS:
         try:
             middlewares.append(_build_pii_middleware(cfg))
-            logger.info(
-                f"[PII] Registered: type={cfg['pii_type']}, strategy={cfg.get('strategy', 'redact')}"
-            )
+            logger.info(f"[PII] Registered: type={cfg['pii_type']}, strategy={cfg.get('strategy', 'redact')}")
         except Exception as e:
             logger.error(f"[PII] Failed to create {cfg.get('pii_type')}: {e}")
     return middlewares

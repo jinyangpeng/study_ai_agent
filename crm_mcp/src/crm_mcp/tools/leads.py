@@ -1,4 +1,5 @@
 """销售线索 (Lead) MCP 工具集。"""
+
 from __future__ import annotations
 
 import logging

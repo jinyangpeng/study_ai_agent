@@ -1,4 +1,5 @@
 """联系人 (Contact) MCP 工具集。"""
+
 from __future__ import annotations
 
 import logging
@@ -106,9 +107,7 @@ def register(mcp: Any) -> None:
             if obj.is_primary:
                 for c in store.contacts.list():
                     if c.customer_id == obj.customer_id and c.is_primary:
-                        store.contacts.replace(
-                            c.model_copy(update={"is_primary": False, "updated_at": now})
-                        )
+                        store.contacts.replace(c.model_copy(update={"is_primary": False, "updated_at": now}))
             store.contacts.add(obj)
 
         await store.write_through(_txn)
@@ -133,14 +132,8 @@ def register(mcp: Any) -> None:
         if updates.get("is_primary") is True:
             target_customer = merged["customer_id"]
             for c in store.contacts.list():
-                if (
-                    c.id != contact_id
-                    and c.customer_id == target_customer
-                    and c.is_primary
-                ):
-                    store.contacts.replace(
-                        c.model_copy(update={"is_primary": False, "updated_at": now_utc()})
-                    )
+                if c.id != contact_id and c.customer_id == target_customer and c.is_primary:
+                    store.contacts.replace(c.model_copy(update={"is_primary": False, "updated_at": now_utc()}))
 
         new_obj = Contact.model_validate(merged)
         await store.write_through(lambda: store.contacts.replace(new_obj))

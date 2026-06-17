@@ -9,6 +9,7 @@ wrapper 本身不关心策略。
 ``create_model`` 按需实例化。这样可以避免 ``from src.providers import
 qianfan`` 返回 *子模块* 而非单例的命名冲突。
 """
+
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -60,9 +61,7 @@ class ModelFactory:
             else:
                 logger.warning("%s API key not configured, unavailable", name.upper())
         if not available:
-            logger.error(
-                "No available model providers! Please configure at least one API key."
-            )
+            logger.error("No available model providers! Please configure at least one API key.")
         return available
 
     def _select_provider(self) -> Optional[str]:
@@ -71,17 +70,13 @@ class ModelFactory:
             return None
         strategy = self.config.strategy
         if strategy == "round_robin":
-            provider = self._available_providers[
-                self._round_robin_index % len(self._available_providers)
-            ]
+            provider = self._available_providers[self._round_robin_index % len(self._available_providers)]
             self._round_robin_index += 1
             return provider
         if strategy == "random":
             return random.choice(self._available_providers)
         # 默认：priority（数字小的胜出）
-        return sorted(
-            self._available_providers, key=self._priority_for
-        )[0]
+        return sorted(self._available_providers, key=self._priority_for)[0]
 
     def _priority_for(self, provider: str) -> int:
         cfg: ModelConfig = getattr(self.config, provider, ModelConfig())
