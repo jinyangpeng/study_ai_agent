@@ -46,10 +46,12 @@ from typing import AsyncIterator, Literal
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from psycopg import errors as pg_errors
 from psycopg_pool import AsyncConnectionPool
 
 from src.config.settings import Settings, get_settings
+from src.core.schemas import Plan, Review
 
 logger = logging.getLogger(__name__)
 
