@@ -159,6 +159,7 @@ class PerAStrategy(BaseStrategy):
             system_prompt=skill.plan_prompt,
             response_format=Plan,
             tools=[],
+            middleware=build_skill_middleware(skill),
         )
 
         async def plan_node(state: AgentState) -> dict:
@@ -249,6 +250,7 @@ class PerAStrategy(BaseStrategy):
             system_prompt=skill.review_prompt,
             response_format=Review,
             tools=[],
+            middleware=build_skill_middleware(skill),
         )
 
         async def review_node(state: AgentState) -> dict:

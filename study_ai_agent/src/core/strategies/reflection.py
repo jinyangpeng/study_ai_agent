@@ -251,6 +251,7 @@ class ReflectionStrategy(BaseStrategy):
             ),
             response_format=Critique,
             tools=[],
+            middleware=build_skill_middleware(skill),
         )
 
         async def critique_node(state: AgentState) -> dict:
