@@ -48,6 +48,8 @@ class Settings(BaseSettings):
 
     # ---- 应用 ----
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    #: 日志格式：``text``（开发，可读）或 ``json``（生产，ELK/Loki 友好）
+    LOG_FORMAT: str = os.getenv("LOG_FORMAT", "text")
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = int(os.getenv("PORT", "8000"))
 
@@ -101,6 +103,48 @@ class Settings(BaseSettings):
     # LangGraph 默认 25，工具频繁失败时 LLM 反复重试会过早撞顶（GraphRecursionError）。
     # 75 大约够 PERA 5-6 轮 revise + Reflection 5 轮 refine + buffer。
     LANGGRAPH_RECURSION_LIMIT: int = int(os.getenv("LANGGRAPH_RECURSION_LIMIT", "75"))
+
+    # ---- MCP 服务（热插拔外部工具服务）----
+    # 格式：name1=url1,name2=url2（逗号分隔，每个条目 name=url）。
+    # agent 启动时通过 langchain-mcp-adapters 连接每个 server，把它的工具
+    # 包装成 BaseTool 注入到对应 skill。server 不可达时降级为空工具集，
+    # 不阻塞 agent 启动。
+    # 示例：MCP_SERVERS=crm=http://localhost:8001/mcp
+    MCP_SERVERS: str = os.getenv("MCP_SERVERS", "")
+
+    # ---- API 限流（#24）----
+    # 基于 IP 的滑动窗口限流。生产环境建议前置 Nginx/网关做分布式限流，
+    # 这里作为应用层兜底，防单实例被刷爆。
+    # RATE_LIMIT_ENABLED=false 时关闭（本地开发默认关）。
+    RATE_LIMIT_ENABLED: bool = os.getenv("RATE_LIMIT_ENABLED", "false").lower() in ("1", "true", "yes", "y", "on")
+    #: 每分钟最大请求数（按 IP 计）
+    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+    #: 限流命中的端点前缀（逗号分隔），默认只限写操作端点
+    RATE_LIMIT_PATHS: str = os.getenv("RATE_LIMIT_PATHS", "/,/api/chat,/admin/")
+
+    # ---- SSE 心跳（#7）----
+    # 长时间无事件时（LLM 思考中、工具执行中）定期发心跳，防代理/防火墙超时断开。
+    # SSE_HEARTBEAT_INTERVAL_SECONDS=0 时关闭心跳。
+    SSE_HEARTBEAT_INTERVAL_SECONDS: float = float(os.getenv("SSE_HEARTBEAT_INTERVAL_SECONDS", "15"))
+
+    # ---- LangGraph 运行时防护（#25 / #26 / #27）----
+    # 消息裁剪（#25）：长对话历史会让 LLM context 爆炸。
+    # 每次调 agent 前保留 system + 最近 N 条消息，超出的截掉。
+    # MAX_MESSAGES_PER_TURN=0 时关闭裁剪（不推荐生产用）。
+    MAX_MESSAGES_PER_TURN: int = int(os.getenv("MAX_MESSAGES_PER_TURN", "50"))
+    #: 工具调用超时（#26）：单个工具卡住时强制取消，防 graph 整体挂死。
+    #: 单位秒。TOOL_TIMEOUT_SECONDS=0 时关闭超时（不推荐生产用）。
+    TOOL_TIMEOUT_SECONDS: float = float(os.getenv("TOOL_TIMEOUT_SECONDS", "60"))
+    #: LLM 输出 max_tokens（#27）：防生成过长导致响应慢 / 成本失控。
+    #: 0 表示用模型默认值（不显式传 max_tokens）。
+    MODEL_MAX_TOKENS: int = int(os.getenv("MODEL_MAX_TOKENS", "4096"))
+
+    # ---- PII 脱敏（#36）----
+    # PII_ENABLED=false 时完全关闭 PII 检测（dev 环境可关，prod 必须开）。
+    # PII_LOG_REDACT=true 时给日志加 PII 过滤器，防止 PII 落盘到 logs/。
+    PII_ENABLED: bool = os.getenv("PII_ENABLED", "true").lower() in ("1", "true", "yes", "y", "on")
+    #: 日志层 PII 脱敏开关。关闭后日志会打印原始 PII（仅 dev 调试用）。
+    PII_LOG_REDACT: bool = os.getenv("PII_LOG_REDACT", "true").lower() in ("1", "true", "yes", "y", "on")
 
 
 @lru_cache

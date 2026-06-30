@@ -4,7 +4,7 @@
  * 展示 SessionContext 中的全部会话，支持：
  *   - 点击切换
  *   - 新建会话
- *   - 删除会话（hover 出现删除按钮）
+ *   - 删除会话（hover 直接出现删除按钮 — dogfood ISSUE-005 修复）
  *   - 按日期分组（今天 / 昨天 / 本周 / 更早）
  *   - 搜索关键字
  *   - 显示当前 skill 图标
@@ -18,7 +18,6 @@ import {
   Search,
   Trash2,
   X,
-  MoreHorizontal,
   Sparkles,
   Code2,
   Compass,
@@ -185,20 +184,10 @@ function SessionItem({
   onRename: (title: string) => void;
 }) {
   const [hover, setHover] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(sessionMeta.title);
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handle = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, [menuOpen]);
 
   useEffect(() => {
     if (editing) {
@@ -257,7 +246,7 @@ function SessionItem({
             </>
           )}
         </div>
-        {(hover || menuOpen) && !editing && (
+        {(hover || active) && !editing && (
           <div className="flex items-center">
             <button
               type="button"
@@ -266,7 +255,6 @@ function SessionItem({
                 e.stopPropagation();
                 setDraftTitle(sessionMeta.title);
                 setEditing(true);
-                setMenuOpen(false);
               }}
               title="重命名"
             >
@@ -274,29 +262,15 @@ function SessionItem({
             </button>
             <button
               type="button"
-              className="text-muted-foreground hover:text-foreground hover:bg-background/60 rounded p-0.5"
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded p-0.5"
               onClick={(e) => {
                 e.stopPropagation();
-                setMenuOpen((v) => !v);
+                onDelete();
               }}
-              title="更多"
+              title="删除"
             >
-              <MoreHorizontal size={14} />
+              <Trash2 size={12} />
             </button>
-            {menuOpen && (
-              <button
-                type="button"
-                className="text-destructive hover:bg-destructive/10 rounded p-0.5"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onDelete();
-                }}
-                title="删除"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
           </div>
         )}
         {active && !editing && (

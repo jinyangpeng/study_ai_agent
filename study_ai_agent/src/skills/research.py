@@ -3,13 +3,15 @@
 工具集
 ------
 * Web 搜索、知识库、计算、实时信息查询、安全工具
-* **纯只读** - 不挂任何 FILE_TOOLS、SHELL_TOOLS、git 工具，
-  execute 节点不会修改工作区。
+* **MCP 集成工具**（:data:`INTEGRATION_TOOLS`）—— 外部 MCP 服务（如 CRM）
+  的工具自动注入，LLM 在用户提问涉及相关领域时自动选用
+* 核心工具集纯只读（不挂 FILE_TOOLS / SHELL_TOOLS），但 MCP 写操作
+  工具会通过 :func:`get_integration_hitl_rules` 自动挂审批门禁
 
 HITL 策略
 ---------
-空 dict —— read-only agent 没有副作用，所以不需要任何审批门禁。
-前端可以把它跑成"无中断"模式。
+MCP 写操作工具（create / update / delete / ...）自动纳入审批；
+核心研究工具无副作用，不需要审批。
 """
 
 # -*- coding: utf-8 -*-
@@ -20,9 +22,11 @@ from typing import TYPE_CHECKING
 from src.core.tools import (
     COMPUTATION_TOOLS,
     INFO_TOOLS,
+    INTEGRATION_TOOLS,
     KNOWLEDGE_TOOLS,
     SAFETY_TOOLS,
     SEARCH_TOOLS,
+    get_integration_hitl_rules,
 )
 from src.skills.base_skill import BaseSkill
 
@@ -94,15 +98,16 @@ class ResearchSkill(BaseSkill):
 
     @property
     def tools(self) -> list["BaseTool"]:
-        """研究智能体的工具集 —— 搜索、知识、计算、信息、安全。"""
+        """研究智能体的工具集 —— 搜索、知识、计算、信息、安全 + MCP 集成工具。"""
         return (
-            list(SEARCH_TOOLS) + list(KNOWLEDGE_TOOLS) + list(COMPUTATION_TOOLS) + list(INFO_TOOLS) + list(SAFETY_TOOLS)
+            list(SEARCH_TOOLS) + list(KNOWLEDGE_TOOLS) + list(COMPUTATION_TOOLS)
+            + list(INFO_TOOLS) + list(SAFETY_TOOLS) + list(INTEGRATION_TOOLS)
         )
 
     @property
     def hitl_rules(self) -> dict[str, dict[str, list[str]]]:
-        """研究智能体 read-only，没有副作用，不需要任何审批门禁。"""
-        return {}
+        """MCP 写操作工具自动审批；核心研究工具无副作用不需要审批。"""
+        return get_integration_hitl_rules()
 
 
 __all__ = ["ResearchSkill"]

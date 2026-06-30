@@ -70,7 +70,6 @@ export default [
       'src/context/ConfigContext.tsx',
       'src/context/SkillContext.tsx',
       'src/context/AguiStateContext.tsx',
-      'src/lib/agui/runtime.tsx',
     ],
     rules: {
       'react-refresh/only-export-components': 'off',

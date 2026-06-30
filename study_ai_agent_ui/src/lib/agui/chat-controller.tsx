@@ -244,14 +244,17 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
     setIsRunning(false);
   }, [activeId]);
 
-  // 切到「本地缓存为空」的 session 时，去后端 checkpointer 拉历史
+  // 切到「本地缓存为空 + 后端有 state」的 session 时，去拉历史。
   // —— 场景：
   //   1) localStorage 被清掉 / 跨设备访问同一 thread_id
   //   2) 后端先有 thread，前端再 import session 元数据
-  // 拉到后 setMessages 会自动触发 viewMessages 重新合并 + 渲染。
+  // 注意：仅当 session.hasRun === true 时才拉，否则全新会话（后端无 state）会
+  // 触发无谓的 404（dogfood ISSUE-003）。
   useEffect(() => {
     if (!activeId) return;
     if (persistedMessages.length > 0) return; // 本地有快照就不打扰后端
+    const meta = sessionRef.current.sessions.find((s) => s.id === activeId);
+    if (!meta?.hasRun) return; // 全新会话：从没跑过，后端必然 404，跳过
     let cancelled = false;
     (async () => {
       const ok = await sessionRef.current.loadFromBackend(
@@ -289,6 +292,9 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
     if (!activeId) return;
     const currentRun = ++runIdRef.current;
     setIsRunning(true);
+    // 标记当前 session 即将发 run（dogfood ISSUE-003 优化），
+    // 后续切回且本地快照为空时才知道这个 thread 后端有 state。
+    session.markRun(activeId);
 
     // 1) 计算 baseMessages：
     //   - 'append'：在尾部追加新的 user message
@@ -321,13 +327,15 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
 
     const usedIds = new Set<string>();
     baseMessages.forEach((m) => m.id && usedIds.add(m.id));
-    userMessage.id && usedIds.add(userMessage.id);
+    if (userMessage.id) usedIds.add(userMessage.id);
 
     const placeholder = makeStreamingAssistant(usedIds);
     setStreamingMessages([placeholder]);
 
     // 用 ref 缓存最新 state，避免 setStreamingMessages 闭包过期
-    const latestStateRef = useRefForRun<AguiStateSnapshot | null>(null);
+    // 注意：这是个普通工厂，不是 React hook；use* 命名会触发 react-hooks
+    // 规则，所以改名 makeRef。
+    const latestStateRef = makeRef<AguiStateSnapshot | null>(null);
     const ac = new AbortController();
     abortRef.current = ac;
 
@@ -528,6 +536,7 @@ export function useChatController(opts: UseChatControllerOptions = {}) {
 // ---------------------------------------------------------------------------
 // 普通 useRef 不行（hook 规则不允许条件调用），所以做成一个普通工厂返回
 // { current } 形状的容器；这样可以在 executeRunRef.current 内部随便用。
-function useRefForRun<T>(initial: T): { current: T } {
+// 注意：故意**不**以 use* 命名，避免被 react-hooks/rules-of-hooks 误判。
+function makeRef<T>(initial: T): { current: T } {
   return { current: initial };
 }

@@ -21,7 +21,8 @@
       "redact": "替换为 [REDACTED_TYPE]",
       "mask": "部分掩码（如信用卡 ****-****-****-1234）",
       "hash": "确定性哈希（如 <email_hash:a1b2c3d4>）"
-    }
+    },
+    "_design_note": "apply_to_output / apply_to_tool_results 默认全开 —— LLM 输出和工具结果同样可能泄漏 PII（模型复述用户手机号、工具返回数据库记录）。如需关闭某类型的输出脱敏（如 dev 环境想看原始 IP），显式设为 false。"
   },
   "keywords": [
     {
@@ -39,38 +40,49 @@
       "detector": "(?<![0-9])[0-9]{13,19}(?![0-9])",
       "strategy": "mask",
       "apply_to_input": true,
-      "apply_to_output": true
+      "apply_to_output": true,
+      "apply_to_tool_results": true
     },
     {
       "pii_type": "ip",
       "_detector_note": "lookaround 替代 \\b —— IPv4。",
       "detector": "(?<![0-9.])(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?![0-9.])",
       "strategy": "hash",
-      "apply_to_input": true
+      "apply_to_input": true,
+      "apply_to_output": true,
+      "apply_to_tool_results": true
     },
     {
       "pii_type": "url",
       "strategy": "redact",
-      "apply_to_input": true
+      "apply_to_input": true,
+      "apply_to_output": true,
+      "apply_to_tool_results": true
     },
     {
       "pii_type": "api_key",
-      "detector": "sk-[a-zA-Z0-9]{32}",
+      "_detector_note": "覆盖 OpenAI (sk-) / DeepSeek (sk-) / 通用长 token 格式。block 策略会在检测到时抛异常。",
+      "detector": "sk-[a-zA-Z0-9]{32,}",
       "strategy": "block",
-      "apply_to_input": true
+      "apply_to_input": true,
+      "apply_to_output": true,
+      "apply_to_tool_results": true
     },
     {
       "pii_type": "phone_cn",
       "detector": "1[3-9]\\d{9}",
       "strategy": "redact",
       "apply_to_input": true,
+      "apply_to_output": true,
       "apply_to_tool_results": true
     },
     {
       "pii_type": "id_card_cn",
       "detector": "\\d{17}[\\dXx]",
       "strategy": "redact",
-      "apply_to_input": true
+      "apply_to_input": true,
+      "apply_to_output": true,
+      "apply_to_tool_results": true
     }
   ]
 }

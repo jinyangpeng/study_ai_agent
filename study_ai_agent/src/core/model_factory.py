@@ -87,6 +87,11 @@ class ModelFactory:
 
         返回:
             ``(model, provider_name)`` 元组。
+
+        #27 max_tokens：若 ``settings.MODEL_MAX_TOKENS > 0``，用
+        ``model.bind(max_tokens=...)`` 给每次 LLM 调用加输出上限，防生成
+        过长导致响应慢 / 成本失控。返回的是 ``RunnableBinding``，对调用方
+        透明（同样支持 ``ainvoke`` / ``stream`` 等）。
         """
         selected = provider or self._select_provider()
         if selected is None:
@@ -96,7 +101,19 @@ class ModelFactory:
 
         provider_cls, _key = _PROVIDER_REGISTRY[selected]
         config = getattr(self.config, selected, ModelConfig())
-        return provider_cls().build_chat(config), selected
+        model = provider_cls().build_chat(config)
+
+        # #27 max_tokens：防 LLM 生成过长
+        max_tokens = settings.MODEL_MAX_TOKENS
+        if max_tokens and max_tokens > 0:
+            try:
+                model = model.bind(max_tokens=max_tokens)
+                logger.info("Model bound with max_tokens=%d", max_tokens)
+            except (TypeError, ValueError) as exc:
+                # 某些 provider 可能不支持 max_tokens 参数，降级为不绑定
+                logger.warning("bind(max_tokens=%d) 失败，跳过: %s", max_tokens, exc)
+
+        return model, selected
 
 
 model_factory = ModelFactory()

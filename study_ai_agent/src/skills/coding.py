@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from src.core.tools import FILE_TOOLS, SEARCH_TOOLS
+from src.core.tools import FILE_TOOLS, INTEGRATION_TOOLS, SEARCH_TOOLS, get_integration_hitl_rules
 from src.skills.base_skill import BaseSkill
 
 if TYPE_CHECKING:
@@ -114,13 +114,13 @@ class CodingSkill(BaseSkill):
 
     @property
     def tools(self) -> list["BaseTool"]:
-        """编程智能体的工具集 —— 文件 + 代码搜索。"""
-        return list(FILE_TOOLS) + list(SEARCH_TOOLS)
+        """编程智能体的工具集 —— 文件 + 代码搜索 + MCP 集成工具。"""
+        return list(FILE_TOOLS) + list(SEARCH_TOOLS) + list(INTEGRATION_TOOLS)
 
     @property
     def hitl_rules(self) -> dict[str, dict[str, list[str]]]:
-        """对变更类工具的 HITL 闸门。"""
-        return {
+        """对变更类工具的 HITL 闸门（含 MCP 写操作自动审批）。"""
+        rules = {
             "write_file": {"allowed_decisions": ["approve", "edit", "reject"]},
             "edit_file": {"allowed_decisions": ["approve", "edit", "reject"]},
             "delete_file": {"allowed_decisions": ["approve", "reject"]},
@@ -128,6 +128,8 @@ class CodingSkill(BaseSkill):
             "git_commit": {"allowed_decisions": ["approve", "reject"]},
             "git_push": {"allowed_decisions": ["approve", "reject"]},
         }
+        rules.update(get_integration_hitl_rules())
+        return rules
 
 
 __all__ = ["CodingSkill"]

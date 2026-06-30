@@ -53,9 +53,11 @@ from src.core.state import AgentState
 from src.core.strategies.base import (
     BaseStrategy,
     NodeFn,
+    apply_runtime_protections,
     build_skill_middleware,
     extract_structured,
     extract_text_from_message,
+    wrap_skill_tools_with_timeout,
 )
 
 __all__ = [
@@ -163,7 +165,9 @@ class PerAStrategy(BaseStrategy):
         )
 
         async def plan_node(state: AgentState) -> dict:
-            result = await agent.ainvoke({"messages": state["messages"]})
+            # #25 消息裁剪：防长对话历史撑爆 LLM context
+            trimmed_msgs = apply_runtime_protections(state["messages"])
+            result = await agent.ainvoke({"messages": trimmed_msgs})
             plan = extract_structured(result, Plan)
             return {"plan": plan, "messages": result["messages"]}
 
@@ -173,6 +177,8 @@ class PerAStrategy(BaseStrategy):
     def _make_execute_node(skill: SkillModule, model) -> NodeFn:
         """构建一个带 skill 工具集和 middleware 的 execute 节点。"""
         tools = list(skill.tools)
+        # #26 工具超时：给每个工具的 _arun/_run 套 asyncio.wait_for
+        tools = wrap_skill_tools_with_timeout(tools)
         middleware = build_skill_middleware(skill)
         agent = create_agent(
             model=model,
@@ -194,6 +200,8 @@ class PerAStrategy(BaseStrategy):
                 else "Execute the user's request."
             )
             messages_in = state["messages"] + [plan_msg]
+            # #25 消息裁剪：防长对话历史撑爆 LLM context
+            messages_in = apply_runtime_protections(messages_in)
             # region debug-point execute-entry
             # 插桩：记录 model/tools/messages 数量，方便定位"模型在生成什么 tool_call 时炸了"
             try:
@@ -250,11 +258,12 @@ class PerAStrategy(BaseStrategy):
             system_prompt=skill.review_prompt,
             response_format=Review,
             tools=[],
-            middleware=build_skill_middleware(skill),
         )
 
         async def review_node(state: AgentState) -> dict:
-            result = await agent.ainvoke({"messages": state["messages"]})
+            # #25 消息裁剪：防长对话历史撑爆 LLM context
+            trimmed_msgs = apply_runtime_protections(state["messages"])
+            result = await agent.ainvoke({"messages": trimmed_msgs})
             review = extract_structured(result, Review)
             return {"review": review, "messages": result["messages"]}
 

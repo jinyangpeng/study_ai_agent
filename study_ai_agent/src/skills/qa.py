@@ -3,11 +3,14 @@
 工具集
 ------
 * Web 搜索、知识库、信息查询
-* **纯只读** - 不挂任何 FILE_TOOLS、SHELL_TOOLS、git 工具。
+* **MCP 集成工具**（:data:`INTEGRATION_TOOLS`）—— 外部 MCP 服务（如 CRM）
+  的工具自动注入，LLM 在用户提问涉及相关领域时自动选用
+* 核心工具集纯只读（不挂 FILE_TOOLS / SHELL_TOOLS）
 
 HITL 策略
 ---------
-空 dict —— read-only agent 没有副作用，所以不需要任何审批门禁。
+MCP 写操作工具（create / update / delete / ...）自动纳入审批；
+核心问答工具无副作用，不需要审批。
 """
 
 # -*- coding: utf-8 -*-
@@ -15,7 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from src.core.tools import INFO_TOOLS, KNOWLEDGE_TOOLS, SEARCH_TOOLS
+from src.core.tools import INFO_TOOLS, INTEGRATION_TOOLS, KNOWLEDGE_TOOLS, SEARCH_TOOLS, get_integration_hitl_rules
 from src.skills.base_skill import BaseSkill
 
 if TYPE_CHECKING:
@@ -88,13 +91,13 @@ class QASkill(BaseSkill):
 
     @property
     def tools(self) -> list["BaseTool"]:
-        """问答智能体的工具集 —— 搜索、知识、信息。"""
-        return list(SEARCH_TOOLS) + list(KNOWLEDGE_TOOLS) + list(INFO_TOOLS)
+        """问答智能体的工具集 —— 搜索、知识、信息 + MCP 集成工具。"""
+        return list(SEARCH_TOOLS) + list(KNOWLEDGE_TOOLS) + list(INFO_TOOLS) + list(INTEGRATION_TOOLS)
 
     @property
     def hitl_rules(self) -> dict[str, dict[str, list[str]]]:
-        """问答智能体 read-only，没有副作用，不需要任何审批门禁。"""
-        return {}
+        """MCP 写操作工具自动审批；核心问答工具无副作用不需要审批。"""
+        return get_integration_hitl_rules()
 
 
 __all__ = ["QASkill"]

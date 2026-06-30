@@ -164,7 +164,7 @@ const ThreadWelcome: FC = () => {
       {/* Quick prompts —— 由后端 skill 声明，跟当前 agent 绑定 */}
       <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
         {prompts.map((qp, idx) => (
-          <QuickPrompt
+          <QuickPromptCard
             key={`${skill.currentSkill}-${idx}-${qp.prompt}`}
             iconName={qp.icon}
             title={qp.title}
@@ -177,7 +177,7 @@ const ThreadWelcome: FC = () => {
   );
 };
 
-function QuickPrompt({
+function QuickPromptCard({
   iconName,
   title,
   description,

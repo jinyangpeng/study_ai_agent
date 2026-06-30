@@ -19,6 +19,14 @@ export interface SessionMeta {
   skillId?: string;
   /** 消息条数（用于列表展示） */
   messageCount: number;
+  /**
+   * 是否已向后端发起过至少一次 run。
+   *
+   * 用于"切到本地无快照的旧会话时是否去后端 checkpointer 拉历史"：
+   *   - 从未跑过 → 后端必然 404（dogfood ISSUE-003），跳过
+   *   - 跑过但本地为空 → 才走 loadFromBackend
+   */
+  hasRun?: boolean;
 }
 
 export interface SessionRecord extends SessionMeta {

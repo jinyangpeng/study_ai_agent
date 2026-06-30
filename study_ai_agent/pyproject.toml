@@ -34,6 +34,9 @@ dependencies = [
     "langgraph>=1.2.4",
     "langgraph-checkpoint>=4.1.1",
     "langgraph-checkpoint-postgres>=3.1.0",
+    # MCP -> LangChain 桥接器：把外部 MCP server 的工具自动包装成 BaseTool，
+    # 供 skill 的 tools 属性直接消费。CRM 等业务 MCP 服务通过它接入。
+    "langchain-mcp-adapters>=0.1.0",
     # langgraph-checkpoint-postgres 走 psycopg 跟 Postgres 通信。
     # 默认的 psycopg（pure-Python）需要系统装 libpq，Windows 上经常缺失导致
     # `ImportError: no pq wrapper available`。[binary] extra 自带 libpq wheel，

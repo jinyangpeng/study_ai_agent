@@ -3,8 +3,12 @@
 #   deps    - 装依赖到 /install（apt + pip 都用 BuildKit 缓存挂载，加速重建）
 #   runtime - 只保留运行时必需的东西（无编译器、无 dev 依赖，体积小）
 #
+# 构建上下文为仓库根（见 docker/docker-compose.yml 的 context: ..），
+# 因此 COPY 源路径都带 study_ai_agent/ 前缀。
+#
 # 构建（需要 BuildKit，Docker Desktop 默认开启）：
-#   docker build -t study-ai-agent-backend -f study_ai_agent/Dockerfile study_ai_agent
+#   cd docker
+#   docker build -t study-ai-agent-backend -f Dockerfile.backend ..
 # 运行：
 #   docker run --rm -p 8000:8000 --env-file .env study-ai-agent-backend
 # =================================================================
@@ -26,9 +30,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 2) 先 copy 锁文件，最大化层缓存命中
-COPY requirements.txt pyproject.toml ./
-COPY config ./config
+# 2) 先 copy 锁文件，最大化层缓存命中（路径相对仓库根）
+COPY study_ai_agent/requirements.txt study_ai_agent/pyproject.toml ./
+COPY study_ai_agent/config ./config
 
 # 3) 装运行时依赖到 /install；用 cache mount 持久化 pip 下载缓存
 #    --no-deps: deps 已经在 -r requirements.txt 里装过，避免重复解析
@@ -59,10 +63,10 @@ WORKDIR /app
 # 从 deps 复制已装好的包
 COPY --from=deps /install /install
 # 复制项目源码（分开 COPY，避开 BuildKit 在 Windows 上的多源 COPY 边角问题）
-COPY --chown=app:app src ./src
-COPY --chown=app:app cli ./cli
-COPY --chown=app:app config ./config
-COPY --chown=app:app main.py pyproject.toml ./
+COPY --chown=app:app study_ai_agent/src ./src
+COPY --chown=app:app study_ai_agent/cli ./cli
+COPY --chown=app:app study_ai_agent/config ./config
+COPY --chown=app:app study_ai_agent/main.py study_ai_agent/pyproject.toml ./
 
 # 切到非 root
 USER app

@@ -53,8 +53,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import json
-
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
@@ -67,9 +65,11 @@ from src.core.strategies.base import (
     DEFAULT_MAX_REFLECTION_ITERATIONS,
     BaseStrategy,
     NodeFn,
+    apply_runtime_protections,
     build_skill_middleware,
     extract_structured,
     extract_text_from_message,
+    wrap_skill_tools_with_timeout,
 )
 
 __all__ = [
@@ -157,7 +157,6 @@ def should_refine(state: AgentState) -> str:
        （达上限，避免无限循环）
     """
     critique = state.get("critique")
-    iterations = state.get("reflection_iterations", 0) or 0
     # 注：skill 拿不到（路由是 module-level）—— 上限判断改在节点
     # 里通过 closure 捕获，见 :meth:`ReflectionStrategy.build_graph`。
     if critique is not None and critique.verdict == "revise":
@@ -183,7 +182,6 @@ class ReflectionStrategy(BaseStrategy):
         """为给定 skill + model 编译 Reflection 图。"""
         # 把 max_iterations 捕获到 closure，让路由函数能用到 skill 级别上限
         max_iters = _resolve_max_iterations(skill)
-        prompt_iter = skill  # 占位，让 closure 读 skill
 
         def _route_after_critique(state: AgentState) -> str:
             critique = state.get("critique")
@@ -214,6 +212,8 @@ class ReflectionStrategy(BaseStrategy):
     def _make_generate_node(skill: SkillModule, model) -> NodeFn:
         """生成首版 draft；带 skill 工具集（可调外部查资料）。"""
         tools = list(skill.tools)
+        # #26 工具超时：给每个工具的 _arun/_run 套 asyncio.wait_for
+        tools = wrap_skill_tools_with_timeout(tools)
         middleware = build_skill_middleware(skill)
         agent = create_agent(
             model=model,
@@ -228,7 +228,9 @@ class ReflectionStrategy(BaseStrategy):
         )
 
         async def generate_node(state: AgentState) -> dict:
-            result = await agent.ainvoke({"messages": state["messages"]})
+            # #25 消息裁剪：防长对话历史撑爆 LLM context
+            trimmed_msgs = apply_runtime_protections(state["messages"])
+            result = await agent.ainvoke({"messages": trimmed_msgs})
             last = result["messages"][-1] if result.get("messages") else None
             draft = extract_text_from_message(last)
             return {
@@ -255,7 +257,9 @@ class ReflectionStrategy(BaseStrategy):
         )
 
         async def critique_node(state: AgentState) -> dict:
-            result = await agent.ainvoke({"messages": state["messages"]})
+            # #25 消息裁剪：防长对话历史撑爆 LLM context
+            trimmed_msgs = apply_runtime_protections(state["messages"])
+            result = await agent.ainvoke({"messages": trimmed_msgs})
             critique = extract_structured(result, Critique)
             return {"critique": critique, "messages": result["messages"]}
 
@@ -265,6 +269,8 @@ class ReflectionStrategy(BaseStrategy):
     def _make_refine_node(skill: SkillModule, model) -> NodeFn:
         """根据 critique 重写 draft；带 skill 工具集（可调外部查证）。"""
         tools = list(skill.tools)
+        # #26 工具超时：给每个工具的 _arun/_run 套 asyncio.wait_for
+        tools = wrap_skill_tools_with_timeout(tools)
         middleware = build_skill_middleware(skill)
         agent = create_agent(
             model=model,
@@ -297,7 +303,10 @@ class ReflectionStrategy(BaseStrategy):
                     + "\n\nNow rewrite the draft to address every concrete issue."
                 )
             )
-            result = await agent.ainvoke({"messages": state["messages"] + [refine_msg]})
+            messages_in = state["messages"] + [refine_msg]
+            # #25 消息裁剪：防长对话历史撑爆 LLM context
+            messages_in = apply_runtime_protections(messages_in)
+            result = await agent.ainvoke({"messages": messages_in})
             new_last = result["messages"][-1] if result.get("messages") else None
             new_draft = extract_text_from_message(new_last)
             return {

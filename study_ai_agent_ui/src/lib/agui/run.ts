@@ -1,9 +1,8 @@
 /**
  * 执行一次 AG-UI ``run`` 并返回聚合结果
  *
- * 这是一个**纯函数**，不依赖 React。可以被：
- *   - 旧的 :func:`createAguiAdapter` 用（ChatModelAdapter 适配器）
- *   - 新的 :func:`useChatController` 用（ExternalStoreAdapter 适配器）
+ * 这是一个**纯函数**，不依赖 React。被 :func:`useChatController`
+ * （基于 ``useExternalStoreRuntime`` 的多会话实现）调用。
  *
  * 设计目标：把 SSE / 事件聚合逻辑抽出来，让上层只关心"发什么 + 怎么用结果"。
  */

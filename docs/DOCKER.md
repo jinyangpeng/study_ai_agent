@@ -7,16 +7,18 @@
 
 ## 1. 文件清单
 
+所有 Docker 部署文件集中在仓库根的 `docker/` 目录，构建上下文统一为**仓库根**
+（`docker/docker-compose.yml` 里两个服务的 `context: ..`），由根 `.dockerignore` 裁剪。
+
 | 文件 | 角色 |
 | --- | --- |
-| `docker-compose.yml` | 一键编排：backend + frontend + 共享网络 |
-| `.env.example` → `.env` | compose 启动期注入的环境变量（端口 / API Key / Vite 构建变量） |
-| `.dockerignore`（根） | 排除根目录构建时不需要的产物 |
-| `study_ai_agent/Dockerfile` | 后端多阶段镜像（builder + runtime） |
-| `study_ai_agent/.dockerignore` | 后端构建上下文裁剪 |
-| `study_ai_agent_ui/Dockerfile` | 前端多阶段镜像（node:20-alpine 构建 + nginx:alpine 托管） |
-| `study_ai_agent_ui/nginx.conf` | nginx 模板：SPA fallback + `/api` 反代 + SSE 友好 |
-| `study_ai_agent_ui/docker-entrypoint.sh` | 渲染 nginx 模板并启动 nginx |
+| `docker/docker-compose.yml` | 一键编排：backend + frontend + 共享网络 |
+| `docker/.env.example` → `docker/.env` | compose 启动期注入的环境变量（端口 / API Key / Vite 构建变量） |
+| `docker/Dockerfile.backend` | 后端多阶段镜像（deps + runtime） |
+| `docker/Dockerfile.frontend` | 前端多阶段镜像（node:20-alpine 构建 + nginx:alpine 托管） |
+| `docker/nginx.conf` | nginx 模板：SPA fallback + `/api` 反代 + SSE 友好 |
+| `docker/docker-entrypoint.sh` | 渲染 nginx 模板并启动 nginx |
+| `.dockerignore`（根） | 构建上下文裁剪（必须放在仓库根才生效） |
 
 ## 2. 架构
 
@@ -44,7 +46,10 @@ Docker compose 内部署了 `agent-net` 桥接网络，frontend 容器通过
 
 ### 3.1 准备 `.env`
 
+Docker 部署文件在 `docker/` 目录，进入后复制示例配置（后续命令都在该目录执行）：
+
 ```bash
+cd docker
 cp .env.example .env
 # 编辑 .env，至少填一个 LLM API Key
 ```
@@ -106,14 +111,17 @@ docker compose down -v         # 顺带清掉挂载的 logs volume
 
 ## 4. 单独构建（不通过 compose）
 
+在 `docker/` 目录内执行（构建上下文为仓库根 `..`）：
+
 ### 后端
 
 ```bash
-docker build -t study-ai-agent-backend -f study_ai_agent/Dockerfile study_ai_agent
+cd docker
+docker build -t study-ai-agent-backend -f Dockerfile.backend ..
 
 docker run --rm -p 8000:8000 \
   --env-file .env \
-  -v "$(pwd)/logs/backend:/app/logs" \
+  -v "$(pwd)/../logs/backend:/app/logs" \
   --name study-backend \
   study-ai-agent-backend
 ```
@@ -123,8 +131,7 @@ docker run --rm -p 8000:8000 \
 ```bash
 docker build \
   --build-arg VITE_API_BASE_URL=http://localhost:8000 \
-  -t study-ai-agent-frontend \
-  -f study_ai_agent_ui/Dockerfile study_ai_agent_ui
+  -t study-ai-agent-frontend -f Dockerfile.frontend ..
 
 docker run --rm -p 3000:80 \
   -e BACKEND_UPSTREAM=http://host.docker.internal:8000 \

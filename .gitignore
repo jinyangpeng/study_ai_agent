@@ -1,39 +1,53 @@
-# Dependencies
+# ==================== 依赖 ====================
 node_modules/
-study_ai_agent/venv/
-study_ai_agent_ui/node_modules/
+**/node_modules/
 
-# Build outputs
+# Python 虚拟环境（任意层级，覆盖各子项目：study_ai_agent / crm_mcp / ...）
+venv/
+.venv/
+env/
+ENV/
+
+# ==================== 构建产物 ====================
+# 前端
 study_ai_agent_ui/dist/
 study_ai_agent_ui/.next/
 study_ai_agent_ui/build/
 study_ai_agent_ui/out/
+# vite 运行时输出捕获
+vite.out
+vite.err
+# Python 打包产物
+*.egg-info/
+build/
+dist/
 
-# Environment variables
+# ==================== 环境变量（实际配置不入库，仅保留示例） ====================
 .env
 .env.local
 .env.development.local
 .env.production.local
+.env.*.local
 .env.*
-study_ai_agent/.env
-study_ai_agent/.env.*
+!.env.example
 
-# Python cache
+# ==================== Python 缓存 ====================
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
 
-# Logs
+# ==================== 日志 ====================
 *.log
+**/logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 debug.log
 test_output.log
 
-# Testing
+# ==================== 测试产物 ====================
 tests/e2e/test_screenshots/
 test_screenshots/
 test_*.txt
@@ -41,25 +55,30 @@ test_dbg*.txt
 test_after*.txt
 test_final.txt
 test_integration_output*.txt
+# 一次性 dogfood 测试输出
+dogfood-output/
 
-# IDE
+# ==================== IDE / 编辑器 ====================
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
 
-# OS
+# ==================== OS ====================
 .DS_Store
 Thumbs.db
 Desktop.ini
 
-# Coverage reports
+# ==================== 覆盖率 / 缓存 ====================
 htmlcov/
 .coverage
 .coverage.*
 coverage.xml
 .pytest_cache/
+.ruff_cache/
 
-# TypeScript
+# ==================== TypeScript ====================
 *.tsbuildinfo
+docs/debug/
+.codebuddy/

@@ -46,8 +46,10 @@ from src.core.state import AgentState
 from src.core.strategies.base import (
     BaseStrategy,
     NodeFn,
+    apply_runtime_protections,
     build_skill_middleware,
     extract_text_from_message,
+    wrap_skill_tools_with_timeout,
 )
 
 __all__ = ["ReActStrategy", "make_react_node", "make_act_node", "DEFAULT_REACT_PROMPT"]
@@ -122,6 +124,8 @@ class ReActStrategy(BaseStrategy):
         agent 内部自带 ReAct 循环（thought -> tool call -> observation -> ...）。
         """
         tools = list(skill.tools)
+        # #26 工具超时：给每个工具的 _arun/_run 套 asyncio.wait_for
+        tools = wrap_skill_tools_with_timeout(tools)
         middleware = build_skill_middleware(skill)
         agent = create_agent(
             model=model,
@@ -131,7 +135,9 @@ class ReActStrategy(BaseStrategy):
         )
 
         async def react_node(state: AgentState) -> dict:
-            result = await agent.ainvoke({"messages": state["messages"]})
+            # #25 消息裁剪：防长对话历史撑爆 LLM context
+            trimmed_msgs = apply_runtime_protections(state["messages"])
+            result = await agent.ainvoke({"messages": trimmed_msgs})
             return {"messages": result["messages"]}
 
         return react_node

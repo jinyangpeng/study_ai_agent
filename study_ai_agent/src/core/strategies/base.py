@@ -24,14 +24,17 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Callable, Optional
 
 from langchain.agents.middleware import AgentMiddleware, HumanInTheLoopMiddleware
 from langchain_core.messages import BaseMessage
+from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
+from src.config.settings import get_settings
 from src.core.middleware import BASE_MIDDLEWARES
 from src.core.skill import SkillModule
 
@@ -42,7 +45,11 @@ __all__ = [
     "extract_structured",
     "extract_text_from_message",
     "build_skill_middleware",
+    "apply_runtime_protections",
+    "wrap_skill_tools_with_timeout",
 ]
+
+logger = logging.getLogger(__name__)
 
 #: 节点函数签名：``async def node(state: AgentState) -> dict``。
 NodeFn = Callable[[dict], dict]
@@ -144,3 +151,36 @@ def extract_text_from_message(message: Optional[BaseMessage]) -> str:
     if isinstance(content, list):
         return "".join(part.get("text", "") for part in content if isinstance(part, dict))
     return str(content)
+
+
+# ---------------------------------------------------------------------------
+# 运行时防护（#25 消息裁剪 + #26 工具超时）
+# ---------------------------------------------------------------------------
+def apply_runtime_protections(
+    messages: list[BaseMessage],
+) -> list[BaseMessage]:
+    """应用消息裁剪（#25）：保留 system + 最近 ``MAX_MESSAGES_PER_TURN`` 条。
+
+    在每个策略节点的 ``agent.ainvoke`` 前调用，防 LLM context 爆炸。
+
+    工具超时（#26）在 :func:`build_skill_middleware` 阶段一次性应用
+    （见 :func:`wrap_tools_with_timeout`），不在每次 ainvoke 时重复。
+    """
+    from src.core.message_utils import trim_messages
+
+    s = get_settings()
+    return trim_messages(messages, s.MAX_MESSAGES_PER_TURN)
+
+
+def wrap_skill_tools_with_timeout(tools: list[BaseTool]) -> list[BaseTool]:
+    """给 skill 工具列表加超时保护（#26）。
+
+    在 ``build_graph`` 时调用一次（在 ``create_agent`` 之前）。
+    ``with_tool_timeout`` 会 monkey-patch 工具实例的 ``_arun`` / ``_run``，
+    所以同一批工具只应 patch 一次（build_graph 由 ``_compiled_graph_for``
+    的 lru_cache 保证只调一次）。
+    """
+    from src.core.message_utils import wrap_tools_with_timeout
+
+    s = get_settings()
+    return wrap_tools_with_timeout(tools, s.TOOL_TIMEOUT_SECONDS)

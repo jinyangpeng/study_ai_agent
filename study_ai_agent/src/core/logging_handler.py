@@ -1,52 +1,45 @@
-"""LLM 调用和 tool 调用的日志回调 handler。"""
+# -*- coding: utf-8 -*-
+"""LLM 调用和 tool 调用的日志回调 handler。
 
-from datetime import datetime
-from pathlib import Path
+改用标准 :mod:`logging` 模块，废弃 ``print()`` + 手写文件 IO 的旧实现。
+日志统一走 ``app`` logger（由 :mod:`src.logging.setup` 配置），自动获得：
+* 结构化 JSON / 文本格式
+* 日志轮转（TimedRotatingFileHandler）
+* request_id 注入
+"""
+
+import logging
 
 from langchain_core.callbacks import BaseCallbackHandler
 
+logger = logging.getLogger("app.callback")
+
 
 class LoggingHandler(BaseCallbackHandler):
-    """把 LLM 和 tool 调用同时打到控制台和文件。"""
+    """把 LLM 和 tool 调用日志打到标准 ``app.callback`` logger。"""
 
     name = "logger"
 
-    def _now_ms(self) -> str:
-        now = datetime.now()
-        return now.strftime("%Y-%m-%d %H:%M:%S") + f".{now.microsecond // 1000:03d}"
-
-    def _log(self, msg: str) -> None:
-        print(msg, flush=True)
-        try:
-            log_dir = Path(__file__).resolve().parent / "logs"
-            log_dir.mkdir(exist_ok=True)
-            log_file = log_dir / f"agent_{datetime.now().strftime('%Y-%m-%d')}.log"
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(msg + "\n")
-        except Exception:
-            pass
-
     def on_chat_model_start(self, serialized, messages, **kwargs):
-        ts = self._now_ms()
         try:
             prompts = [str(m)[:500] for m in (messages[0] if messages else [])]
         except Exception:
             prompts = [str(messages)[:500]]
-        self._log(f"{ts}  [name={self.name} type=model-start] prompts={prompts}")
+        logger.info("[model-start] prompts=%s", prompts)
 
     def on_chat_model_end(self, response, **kwargs):
-        ts = self._now_ms()
         try:
             output = str(response)[:500]
         except Exception:
             output = "..."
-        self._log(f"{ts}  [name={self.name} type=model-end] output={output}")
+        logger.info("[model-end] output=%s", output)
 
     def on_tool_start(self, serialized, input_str, **kwargs):
-        ts = self._now_ms()
         name = serialized.get("name", "unknown") if isinstance(serialized, dict) else "unknown"
-        self._log(f"{ts}  [name={self.name} type=tool-start] tool={name}, input={input_str}")
+        logger.info("[tool-start] tool=%s input=%s", name, input_str)
 
     def on_tool_end(self, output, **kwargs):
-        ts = self._now_ms()
-        self._log(f"{ts}  [name={self.name} type=tool-end] output={output}")
+        logger.info("[tool-end] output=%s", output)
+
+    def on_tool_error(self, error, **kwargs):
+        logger.error("[tool-error] %s: %s", type(error).__name__, error)

@@ -53,8 +53,10 @@ study_ai_agent/                 # ← 仓库根（monorepo）
 │   ├── package.json
 │   └── vite.config.ts
 │
+├── docker/                     # Docker 部署文件（compose / Dockerfile / nginx 配置，集中管理）
 ├── tests/                      # 端到端 / 跨栈测试
-├── docs/                       # 设计文档（ARCHITECTURE / AGENTS / …）
+├── docs/                       # 设计文档（ARCHITECTURE / AGENTS / …）+ docs/debug/ 调试会话归档
+├── justfile                    # 根编排器：just install / dev / build / lint / docker-up …
 ├── LICENSE                     # MIT
 └── README.md                   # 你正在读的
 ```
@@ -66,11 +68,53 @@ study_ai_agent/                 # ← 仓库根（monorepo）
 
 更详细的设计稿（中间件顺序、PPAS 图、AG-UI 事件流）见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。
 
+## 运行效果
+
+### 聊天主界面
+
+默认进入 `/chat`：左侧多会话历史侧边栏，顶部智能体（skill）切换器，右侧实时展示 AG-UI SSE 流式回复。
+
+![聊天主界面](docs/assets/screenshots/chat-main.png)
+
+### 思考过程内联
+
+每条 AI 消息气泡内联 plan / review / citations / code_changes，PPAS 图（Planner → Executor → Reviewer → Aggregator）的中间产物全程可见。
+
+![思考过程内联](docs/assets/screenshots/inline-state.png)
+
+### 切换智能体（coding）
+
+切到 `coding` skill 后可触发 `write_file` / `shell_exec` 等工具，破坏性操作走 HITL 门禁。
+
+![切换智能体 coding](docs/assets/screenshots/skill-coding.png)
+
+### 系统配置页
+
+`/config` 页可临时切换后端 API Base URL、默认 skill 与主题（落地到 localStorage）。
+
+![系统配置页](docs/assets/screenshots/config-page.png)
+
+### 暗色主题
+
+内置暗色 / 亮色主题切换（`useTheme` + localStorage 持久化）。
+
+![暗色主题](docs/assets/screenshots/dark-theme.png)
+
 ## 5 分钟跑起来
 
 ### 方式 A：本地（venv + npm）
 
-完整步骤见 [`docs/QUICKSTART.md`](docs/QUICKSTART.md)，下面是极简版：
+完整步骤见 [`docs/QUICKSTART.md`](docs/QUICKSTART.md)。**推荐用根 justfile 一键起**：
+
+```bash
+# 在仓库根
+just install                   # 装后端 venv + 前端 node_modules
+just env-dev                   # 生成 study_ai_agent/.env.development
+# 编辑 study_ai_agent/.env.development，至少填一个 LLM API Key
+just dev                       # 并发启动后端 :8000 + 前端 :3000（Ctrl+C 同时停）
+```
+
+或手动分步：
 
 ```bash
 # 1. 准备后端
@@ -92,8 +136,10 @@ npm run dev                     # http://localhost:3000
 
 ### 方式 B：Docker / Docker Compose
 
+Docker 部署文件集中在 `docker/` 目录：
+
 ```bash
-# 在仓库根
+cd docker
 cp .env.example .env             # 编辑后填入至少 1 个 LLM API Key
 docker compose build
 docker compose up -d
@@ -114,6 +160,7 @@ docker compose up -d
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 二次开发者 | PPAS 图、中间件顺序、AG-UI 事件流 |
 | [docs/AGENTS.md](docs/AGENTS.md) | 二次开发者 | 新增 Skill / Provider / Tool 的标准流程 |
 | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | 贡献者 | 提 PR / 提 Issue 的规范 |
+| [docs/debug/](docs/debug/README.md) | 排障者 | 未解决 / 近期解决的调试会话笔记 |
 | [study_ai_agent/README.md](study_ai_agent/README.md) | 后端开发者 | Python 子项目细节 |
 | [study_ai_agent_ui/README.md](study_ai_agent_ui/README.md) | 前端开发者 | React 子项目细节 |
 

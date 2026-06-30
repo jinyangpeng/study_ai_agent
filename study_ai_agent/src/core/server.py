@@ -75,28 +75,27 @@ if _sys.platform == "win32":  # pragma: no cover
     del _asyncio
 del _sys
 
-import logging
-from functools import lru_cache
-from typing import Any, AsyncIterator
+import logging  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
+from functools import lru_cache  # noqa: E402
+from typing import Any, AsyncIterator  # noqa: E402
 
-from contextlib import asynccontextmanager
+from ag_ui.core.events import RunErrorEvent  # noqa: E402
+from ag_ui.core.types import RunAgentInput  # noqa: E402
+from ag_ui.encoder import EventEncoder  # noqa: E402
+from ag_ui_langgraph import LangGraphAgent  # noqa: E402
+from fastapi import FastAPI, HTTPException, Query, Request  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
+from langchain_core.messages import BaseMessage  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
 
-from ag_ui.core.events import RunErrorEvent
-from ag_ui.core.types import RunAgentInput
-from ag_ui.encoder import EventEncoder
-from ag_ui_langgraph import LangGraphAgent
-from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from langchain_core.messages import BaseMessage
-from pydantic import BaseModel
-
-from src.core.checkpointer import (
+from src.core.checkpointer import (  # noqa: E402
     _extract_text,
     checkpointer_factory,
 )
-from src.core.graph import build_graph
-from src.core.skill import SkillModule
+from src.core.graph import build_graph  # noqa: E402
+from src.core.skill import SkillModule  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -214,8 +213,50 @@ async def _lifespan(app: FastAPI):
 
 app = FastAPI(
     title="LangChain Agent API",
+    version="1.0.0",
+    description=(
+        "基于 LangGraph + AG-UI 协议的多 skill 智能体后端。\n\n"
+        "## 主要能力\n"
+        "* **多 skill 调度** —— research / coding / qa，按 `forwarded_props.skill` 路由\n"
+        "* **MCP 热插拔** —— 外部工具服务通过 `MCP_SERVERS` 配置接入，零代码扩展\n"
+        "* **HITL 审批** —— 写操作工具自动触发人工审批门禁\n"
+        "* **AG-UI 协议** —— SSE 事件流，兼容 assistant-ui 等前端\n\n"
+        "## 健康检查\n"
+        "* `GET /live` —— liveness probe（进程存活）\n"
+        "* `GET /ready` —— readiness probe（依赖就绪）\n"
+        "* `GET /health` —— 综合健康状态（含 checkpointer / MCP / 策略路由）\n"
+    ),
     lifespan=_lifespan,
+    contact={
+        "name": "Study AI Agent Team",
+        "url": "https://github.com/your-org/study_ai_agent",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    openapi_tags=[
+        {"name": "AG-UI", "description": "AG-UI 协议端点（SSE 事件流）"},
+        {"name": "Health", "description": "健康检查 / 存活 / 就绪探针"},
+        {"name": "Skills", "description": "Skill 发现 / 热重载"},
+        {"name": "Threads", "description": "会话历史管理"},
+        {"name": "Legacy", "description": "旧版同步端点（保留兼容）"},
+    ],
 )
+
+# ---------------------------------------------------------------------------
+# 中间件注册（顺序：后注册的先执行）
+# ---------------------------------------------------------------------------
+# RequestIdMiddleware —— 为每条请求注入 request_id，贯穿日志 / 错误响应
+from src.core.middleware.request_id import RequestIdMiddleware  # noqa: E402
+
+app.add_middleware(RequestIdMiddleware)
+
+# RateLimitMiddleware —— 基于 IP 的滑动窗口限流（#24）
+# 默认关闭（RATE_LIMIT_ENABLED=false），生产环境通过环境变量开启
+from src.core.middleware.rate_limit import RateLimitMiddleware  # noqa: E402
+
+app.add_middleware(RateLimitMiddleware)
 
 # CORS：本地开发默认全开。生产环境把 ``"*"`` 替换成显式的 allowlist 即可。
 app.add_middleware(
@@ -226,11 +267,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ---------------------------------------------------------------------------
+# 全局异常处理器 —— 统一错误响应格式 {"error": {"code", "message", "request_id"}}
+# ---------------------------------------------------------------------------
+from src.core.errors import register_exception_handlers  # noqa: E402
+
+register_exception_handlers(app)
+
 
 # ---------------------------------------------------------------------------
 # 发现端点 - 让 AG-UI 前端可以渲染 skill 选择器
 # ---------------------------------------------------------------------------
-@app.get("/skeletons")
+@app.get("/skeletons", tags=["Skills"])
 async def list_skills() -> dict[str, Any]:
     """列出已注册的 skill（即 skeleton）。"""
     registry = _get_skill_registry()
@@ -247,6 +295,38 @@ async def list_skills() -> dict[str, Any]:
             }
             for skill in registry.values()
         ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# 管理端点 - 运行期热重载（不重启进程）
+# ---------------------------------------------------------------------------
+@app.post("/admin/skills/reload", tags=["Skills"])
+async def reload_skills() -> dict[str, Any]:
+    """热重载：重新拉 MCP 工具 + 清图缓存。
+
+    使用场景：
+    * CRM MCP server 重启 / 换了 URL 后，调一次让 agent 重新连
+    * MCP_SERVERS 环境变量改了（需重启进程才能读新 env，此端点读
+      的是当前进程已加载的 env；改 .env 后仍需重启进程）
+    * 临时下线某个 MCP server 后清掉它的工具
+
+    做两件事：
+    1. integration_tools.reload() —— 重新连所有 MCP server，原地替换
+       INTEGRATION_TOOLS 列表（保持引用不变）
+    2. _compiled_graph_for.cache_clear() —— 清掉已编译图的 LRU 缓存，
+       下一次请求会重新 build_graph()，从而读到新的工具集
+    """
+    from src.core.tools.integration_tools import reload as reload_mcp_tools
+
+    new_tools = reload_mcp_tools()
+    _compiled_graph_for.cache_clear()
+    logger.info("Skills reloaded: %d MCP tools, graph cache cleared", len(new_tools))
+    return {
+        "reloaded": True,
+        "mcp_tool_count": len(new_tools),
+        "mcp_tool_names": [getattr(t, "name", str(t)) for t in new_tools],
+        "graph_cache_cleared": True,
     }
 
 
@@ -285,18 +365,34 @@ def _resolve_skill_id_from_input(input_payload: dict[str, Any] | None) -> str:
     return str(candidate)
 
 
-@app.post("/")
+@app.post("/", tags=["AG-UI"])
 async def run_agui(payload: RunAgentInput, request: Request):
     """在 ``forwarded_props.skill`` 声明的 skill 下运行 agent。
 
     body 是 :class:`ag_ui.core.RunAgentInput`（由 ``ag-ui-langgraph`` 校验），
     我们从 ``forwarded_props`` 中取出 skill id，把 AG-UI 事件以 SSE 流式
     返回。
+
+    SSE 心跳（#7）：长时间无事件时（LLM 思考中、工具执行中）定期发
+    ``: keep-alive`` 注释行，防代理 / 防火墙超时断开。间隔由
+    ``SSE_HEARTBEAT_INTERVAL_SECONDS`` 配置（默认 15s，设 0 关闭）。
     """
+    from src.config.settings import settings as _settings
+    from src.core.sse_heartbeat import HEARTBEAT_LINE, is_heartbeat, with_heartbeat
+
+    # #28 GraphRecursionError：LangGraph 递归超限异常
+    try:
+        from langgraph.errors import GraphRecursionError as _GraphRecursionError
+    except ImportError:
+        # 老版本 langgraph 可能没有这个异常类，用一个永远不会命中的兜底类
+        class _GraphRecursionError(Exception):
+            """兜底：langgraph.errors.GraphRecursionError 不可用时的占位。"""
+
     payload_dict = payload.model_dump()
     skill_id = _resolve_skill_id_from_input(payload_dict)
     request_agent = _agui_agent_for(skill_id).clone()
     encoder = EventEncoder(accept=request.headers.get("accept"))
+    heartbeat_interval = _settings.SSE_HEARTBEAT_INTERVAL_SECONDS
 
     async def event_generator():
         # 关键修复：必须 try/except 包住整个迭代，并在异常时
@@ -307,8 +403,13 @@ async def run_agui(payload: RunAgentInput, request: Request):
             # 过滤掉 LangChain ``create_agent(response_format=...)`` 产生的
             # 合成 tool call（参见 :func:`_filter_structured_output_tool_events`）。
             filtered = _filter_structured_output_tool_events(raw_events)
-            async for event in filtered:
-                yield encoder.encode(event)
+            # 叠加心跳（#7）：每 ``heartbeat_interval`` 秒无事件时发 keep-alive
+            heartbeated = with_heartbeat(filtered, heartbeat_interval)
+            async for item in heartbeated:
+                if is_heartbeat(item):
+                    yield HEARTBEAT_LINE
+                else:
+                    yield encoder.encode(item)
         except (asyncio.CancelledError, GeneratorExit):
             # SSE 客户端断开（关浏览器 / 切路由 / 网络掉）会触发
             # CancelledError（Python 3.8+ 是 BaseException 子类，
@@ -316,6 +417,24 @@ async def run_agui(payload: RunAgentInput, request: Request):
             # 不要走 RUN_ERROR 路径 —— 此时连接已经断了，再 yield 也送不到。
             logger.info("SSE 客户端断开，已停止事件流 (skill=%s)", skill_id)
             return
+        except _GraphRecursionError:
+            # #28 GraphRecursionError：图递归超限（PERA/Reflection 循环太多）
+            # 不应裸掐断 SSE 流，前端需要知道是"步数超限"而非"服务挂了"。
+            logger.warning(
+                "GraphRecursionError: skill=%s recursion_limit=%s (调高 LANGGRAPH_RECURSION_LIMIT 或优化工具失败重试)",
+                skill_id, _settings.LANGGRAPH_RECURSION_LIMIT,
+            )
+            err_event = RunErrorEvent(
+                message=(
+                    f"Agent reached recursion limit ({_settings.LANGGRAPH_RECURSION_LIMIT} steps). "
+                    "The task may be too complex or a tool is failing repeatedly."
+                ),
+                code="RECURSION_LIMIT",
+            )
+            try:
+                yield encoder.encode(err_event)
+            except Exception:
+                logger.warning("RECURSION_LIMIT 事件编码失败，SSE 流将直接关闭")
         except Exception as exc:
             logger.exception("AG-UI run 异常，中断事件流")
             # 编码一个 RUN_ERROR 事件，让前端知道发生了什么
@@ -326,8 +445,8 @@ async def run_agui(payload: RunAgentInput, request: Request):
             try:
                 yield encoder.encode(err_event)
             except Exception:
-                # 即便编码失败也要保证流被关闭（让出控制权）
-                pass
+                # 编码失败也要保证流被关闭（让出控制权）
+                logger.warning("RUN_ERROR 事件编码失败，SSE 流将直接关闭")
             # 函数正常返回 -> FastAPI 会发终止 chunk
 
     return StreamingResponse(
@@ -410,6 +529,7 @@ def _safe_json_dumps(obj: Any) -> str:
     try:
         return json.dumps(obj, ensure_ascii=False, default=str)
     except Exception:
+        logger.warning("_safe_json_dumps 序列化失败，返回空 JSON", exc_info=True)
         return "{}"
 
 
@@ -428,7 +548,7 @@ def _state_for_response(channel_values: dict[str, Any]) -> dict[str, Any]:
                 out[k] = v.model_dump()
                 continue
             except Exception:
-                pass
+                logger.warning("model_dump 失败 (key=%s)，回退到 str()", k, exc_info=True)
         try:
             import json
 
@@ -439,7 +559,7 @@ def _state_for_response(channel_values: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-@app.get("/threads")
+@app.get("/threads", tags=["Threads"])
 async def list_threads(
     limit: int = Query(100, ge=1, le=500),
 ) -> dict[str, Any]:
@@ -459,7 +579,7 @@ async def list_threads(
     return {"threads": threads, "count": len(threads)}
 
 
-@app.get("/threads/{thread_id}/state")
+@app.get("/threads/{thread_id}/state", tags=["Threads"])
 async def get_thread_state(thread_id: str) -> dict[str, Any]:
     """读取指定 thread 的最新 checkpoint state。
 
@@ -484,7 +604,7 @@ async def get_thread_state(thread_id: str) -> dict[str, Any]:
     }
 
 
-@app.delete("/threads/{thread_id}")
+@app.delete("/threads/{thread_id}", tags=["Threads"])
 async def delete_thread(thread_id: str) -> dict[str, Any]:
     """删除一个 thread 的全部 checkpoint + writes（与前端删除会话语义对齐）。
 
@@ -500,13 +620,88 @@ async def delete_thread(thread_id: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# 健康检查 & 旧端点
+# 健康检查 & 探针（#14）
 # ---------------------------------------------------------------------------
-@app.get("/health")
-async def health() -> dict:
-    """健康检查（含 checkpointer / DB / 策略路由状态）。"""
+# 三个端点的语义差异（Kubernetes / 容器编排标准）：
+# * /live   —— liveness probe。进程还活着就 200，不检查依赖。
+#              失败 → 编排系统重启容器。
+# * /ready  —— readiness probe。依赖（DB / MCP）就绪才 200。
+#              失败 → 编排系统把 pod 从 Service endpoints 摘掉（不重启）。
+# * /health —— 综合健康状态，返回详细诊断信息。degraded 时返回 503，
+#              便于监控告警 / 运维 dashboard 直接看状态码。
+# ---------------------------------------------------------------------------
+@app.get("/live", tags=["Health"])
+async def liveness() -> dict:
+    """Liveness probe —— 进程存活即 200（不检查依赖）。
+
+    用于 Kubernetes livenessProbe / Docker HEALTHCHECK。
+    失败时编排系统会重启容器。
+    """
+    return {"status": "alive", "agent": AGENT_NAME}
+
+
+@app.get("/ready", tags=["Health"])
+async def readiness() -> dict:
+    """Readiness probe —— 依赖就绪才 200。
+
+    检查项：
+    * checkpointer（DB）可达
+    * MCP server 断路器未全部打开（有 server 配置时）
+
+    失败时编排系统会把 pod 从 Service endpoints 摘掉（不重启），
+    等 ready 后再接流量。
+    """
     cp_status = await checkpointer_factory.ping()
-    overall_ok = cp_status.get("ok", False)
+    cp_ok = cp_status.get("ok", False)
+
+    from src.core.tools.integration_tools import mcp_health
+
+    mcp_status = mcp_health()
+    mcp_ok = True
+    if mcp_status.get("configured") and mcp_status.get("tool_count", 0) == 0:
+        mcp_ok = False
+
+    ready = cp_ok and mcp_ok
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={
+            "status": "ready" if ready else "not_ready",
+            "checkpointer": {"ok": cp_ok},
+            "mcp": {"ok": mcp_ok, "configured": mcp_status.get("configured", False)},
+        },
+    )
+
+
+@app.get("/health", tags=["Health"])
+async def health() -> dict:
+    """综合健康检查（含 checkpointer / DB / 策略路由 / MCP / 限流状态）。
+
+    返回 200 当一切正常，503 当任何依赖 degraded。
+    响应体含详细诊断信息，便于运维 dashboard / 监控告警使用。
+    """
+    cp_status = await checkpointer_factory.ping()
+    cp_ok = cp_status.get("ok", False)
+
+    # MCP 集成健康：tool_count + 每个 server 的断路器状态
+    from src.core.tools.integration_tools import mcp_health
+
+    mcp_status = mcp_health()
+    # 只要有 server 配置但 tool_count=0 或任意断路器打开 → 视为 degraded
+    mcp_ok = True
+    if mcp_status.get("configured"):
+        if mcp_status.get("tool_count", 0) == 0:
+            mcp_ok = False
+        for srv_info in mcp_status.get("servers", {}).values():
+            if srv_info.get("circuit_open", False):
+                mcp_ok = False
+                break
+
+    # 限流状态（#24）
+    from src.core.middleware.rate_limit import rate_limit_status
+
+    rl_status = rate_limit_status()
+
+    overall_ok = cp_ok and mcp_ok
 
     # 暴露每个 skill 实际绑定的策略名 + 全局可用策略列表。
     # 便于运维一眼看清"qa 走 PERA、coding 走 ReAct"这种路由，
@@ -514,12 +709,14 @@ async def health() -> dict:
     from src.core.strategies import available as available_strategies
     from src.skills import SKILL_REGISTRY
 
-    return {
+    body = {
         "status": "ok" if overall_ok else "degraded",
         "agent": {"name": AGENT_NAME},
         "protocol": "ag-ui",
         "default_skill": _default_skill_id(),
         "checkpointer": cp_status,
+        "mcp": mcp_status,
+        "rate_limit": rl_status,
         "strategies": {
             "available": available_strategies(),
             "per_skill": {
@@ -531,6 +728,10 @@ async def health() -> dict:
             },
         },
     }
+    return JSONResponse(
+        status_code=200 if overall_ok else 503,
+        content=body,
+    )
 
 
 class ChatRequest(BaseModel):
@@ -549,7 +750,7 @@ class ChatResponse(BaseModel):
     skill: str
 
 
-@app.post("/api/chat", response_model=ChatResponse)
+@app.post("/api/chat", response_model=ChatResponse, tags=["Legacy"])
 async def chat(req: ChatRequest) -> ChatResponse:
     """简单的同步聊天端点（保留下来方便 curl 风格快速测试）。"""
     from langchain_core.runnables import RunnableConfig

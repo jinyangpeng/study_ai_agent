@@ -1,7 +1,8 @@
-# ==================== 根 .dockerignore（供 compose 上下文使用） ====================
-# compose 在根目录执行构建时，会把根目录所有文件都发送给 Docker daemon。
-# 这里把不需要的本地产物排除掉。
-# =====================================================================
+# ==================== 根 .dockerignore（构建上下文 = 仓库根） ====================
+# docker/docker-compose.yml 中两个服务的 build.context 都为仓库根（..），
+# 因此 Docker daemon 会把仓库根所有文件发送给构建上下文。
+# 本文件负责裁剪上下文，避免把本地产物 / 敏感文件打入镜像。
+# =========================================================================
 
 # Git
 .git/
@@ -12,6 +13,7 @@
 README.md
 LICENSE
 docs/
+dogfood-output/
 .idea/
 .vscode/
 *.swp
@@ -19,16 +21,13 @@ docs/
 .DS_Store
 Thumbs.db
 
-# 前端 / 后端自身的 .dockerignore / Dockerfile（避免重复）
-study_ai_agent/Dockerfile
-study_ai_agent/.dockerignore
-study_ai_agent_ui/Dockerfile
-study_ai_agent_ui/.dockerignore
-
-# 前端构建产物与依赖
+# 前端依赖与构建产物（容器内会重新 npm ci + build）
 study_ai_agent_ui/node_modules/
 study_ai_agent_ui/dist/
 study_ai_agent_ui/build/
+study_ai_agent_ui/out/
+study_ai_agent_ui/vite.out
+study_ai_agent_ui/vite.err
 
 # 后端虚拟环境与缓存
 study_ai_agent/.venv/
@@ -38,6 +37,10 @@ study_ai_agent/**/__pycache__/
 study_ai_agent/.pytest_cache/
 study_ai_agent/.ruff_cache/
 study_ai_agent/*.egg-info/
+study_ai_agent/tests/
+
+# CRM MCP 子项目（不需要打进主服务镜像）
+crm_mcp/
 
 # 敏感 / 运行时数据
 .env

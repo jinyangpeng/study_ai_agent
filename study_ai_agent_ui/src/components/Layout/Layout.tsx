@@ -5,7 +5,7 @@
  * - 顶栏（页面标题 / Skill / 新建 / 主题切换 / 设置）
  * - 主区：children
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -45,10 +45,17 @@ export default function Layout({ children }: LayoutProps) {
   const skill = useSkill();
   const session = useSession();
 
-  // 首次进入应用时若没有任何会话，自动建一个空会话
+  // 首次进入应用时若没有任何会话，自动建一个空会话。
+  // 用 ref 做幂等守护，避免 React 18 StrictMode 在 dev 下双调 effect 导致
+  // 连续建出两个空 session（dogfood ISSUE-001 残余）。
+  const hasAutoCreatedRef = useRef(false);
   useEffect(() => {
+    if (hasAutoCreatedRef.current) return;
     if (session.sessions.length === 0 && !session.activeId) {
+      hasAutoCreatedRef.current = true;
       session.createNew(skill.currentSkill);
+    } else {
+      hasAutoCreatedRef.current = true;
     }
     // 只在挂载时执行一次（+ 配置变化时）
     // eslint-disable-next-line react-hooks/exhaustive-deps

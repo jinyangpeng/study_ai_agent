@@ -1,9 +1,0 @@
-Metadata-Version: 2.4
-Name: crm-mcp
-Version: 0.1.0
-Summary: CRM 系统 MCP 服务（基于模拟数据，企业级最佳实践）
-Requires-Python: >=3.10
-Requires-Dist: mcp>=1.2.0
-Requires-Dist: pydantic>=2.13.4
-Requires-Dist: pydantic-settings>=2.14.1
-Requires-Dist: uvicorn>=0.48.0

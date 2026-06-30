@@ -1,0 +1,135 @@
+# ==================== Docker Compose ====================
+# 一键起后端 + 前端。所有 Docker 部署文件都集中在 docker/ 目录。
+#
+# 构建上下文统一为仓库根（context: ..），Dockerfile 通过 dockerfile: 指向
+# docker/Dockerfile.backend | docker/Dockerfile.frontend，根 .dockerignore 负责裁剪上下文。
+#
+# PostgreSQL 是可选的：
+#   * 默认：连 .env 里配置的外部 PostgreSQL（POSTGRES_HOST=...）
+#   * 内置：COMPOSE_PROFILES=with-postgres docker compose up -d
+#           会额外起一个 postgres:16-alpine，backend 自动连它
+#
+# 用法（推荐在 docker/ 目录内执行）：
+#   cd docker
+#   cp .env.example .env          # 填入 LLM API Key + 外部 PostgreSQL 连接信息
+#   docker compose build          # 构建镜像
+#   docker compose up -d          # 后台启动（连外部 PG）
+#   docker compose logs -f backend# 看后端日志
+#   docker compose down           # 停止
+#   docker compose down -v        # 停止并清掉 volumes（含内置 PG 数据）
+#
+# 启用内置 PostgreSQL：
+#   COMPOSE_PROFILES=with-postgres docker compose up -d
+#
+# 也可以在仓库根用 -f 指定：
+#   docker compose -f docker/docker-compose.yml up -d
+# =======================================================
+name: study-ai-agent
+
+services:
+  # ----------------- PostgreSQL（可选，langgraph checkpointer 持久化）-----------------
+  # 默认不启用（走外部已部署的 PG）；COMPOSE_PROFILES=with-postgres 时启用。
+  # 启用后 backend 会自动把 POSTGRES_HOST 指向这个服务（见 backend.environment）。
+  postgres:
+    profiles: ["with-postgres"]
+    container_name: study-ai-agent-postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    volumes:
+      # 数据持久化：命名 volume，docker compose down 不删，down -v 才删
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready 是官方推荐探活：检查 PG 是否接受连接
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - agent-net
+
+  # ----------------- 后端（LangChain + AG-UI） -----------------
+  backend:
+    container_name: study-ai-agent-backend
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    image: study-ai-agent-backend:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # 容器内固定值；端口暴露与运行时配置
+      ENV: production
+      HOST: 0.0.0.0
+      PORT: "8000"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      WORKERS: "1"   # SSE 长连接：单 worker 即可，多 worker 需要 sticky session
+      # ---- PostgreSQL 连接 ----
+      # 默认走 .env 里的 POSTGRES_HOST（外部已部署的 PG）；
+      # 启用内置 postgres 服务时（COMPOSE_PROFILES=with-postgres），这里覆盖为 compose 服务名。
+      # POSTGRES_PORT / USER / PASSWORD / DB / SCHEMA 直接透传 .env，两种模式通用。
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_SCHEMA: ${POSTGRES_SCHEMA:-langgraph_checkpoints}
+      CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      # 持久化日志（容器外可见）：相对于 compose 文件，回溯到仓库根 logs/
+      - ../logs/backend:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # start_period 覆盖：连池 + lifespan setup() + uvicorn boot
+      start_period: 40s
+    networks:
+      - agent-net
+
+  # ----------------- 前端（Vite + nginx） -----------------
+  frontend:
+    container_name: study-ai-agent-frontend
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+      args:
+        # 浏览器看到的 API 地址。如果是同主机 compose 网络，让前端直接走 backend:8000；
+        # 如果浏览器在 compose 外部，需要改成 http://localhost:8000 或公网地址。
+        VITE_APP_TITLE: ${VITE_APP_TITLE:-Study AI Agent}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+        VITE_HEALTH_CHECK_URL: ${VITE_HEALTH_CHECK_URL:-http://localhost:8000/health}
+    image: study-ai-agent-frontend:latest
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # nginx 反代上游（容器内走 compose 服务名 backend:8000）
+      BACKEND_UPSTREAM: http://backend:8000
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+    driver: bridge
+
+volumes:
+  # PostgreSQL 数据持久化（仅 COMPOSE_PROFILES=with-postgres 时使用）。
+  # docker compose down 不删；down -v 才删。
+  pgdata:

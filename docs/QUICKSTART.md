@@ -191,9 +191,10 @@ npm run build
 
 ### B.1 准备 `.env`
 
-在 **仓库根** 目录：
+Docker 部署文件集中在 `docker/` 目录，进入后复制示例配置：
 
 ```bash
+cd docker
 cp .env.example .env
 # 编辑 .env，至少填一个 LLM API Key
 ```

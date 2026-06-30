@@ -83,6 +83,11 @@ INTEGRATION_TOOLS = _load_tools("src.core.tools.integration_tools", "INTEGRATION
 SAFETY_TOOLS = _load_tools("src.core.tools.safety_tools", "SAFETY_TOOLS")
 UTILITY_TOOLS = _load_tools("src.core.tools.utility_tools", "UTILITY_TOOLS")
 
+# MCP 写操作工具的 HITL 审批规则（自动生成，零代码扩展）。
+# 从 integration_tools 模块导入函数本身（不是调用结果），让调用方在
+# 需要时动态获取最新规则（热重载后规则也会更新）。
+from src.core.tools.integration_tools import get_integration_hitl_rules  # noqa: E402
+
 # 展开后的 list，在 Pydantic AI Agent 构建时使用。缺失的分类贡献 ``[]``。
 ALL_TOOLS: list = (
     INFO_TOOLS
@@ -109,4 +114,5 @@ __all__ = [
     "INTEGRATION_TOOLS",
     "SAFETY_TOOLS",
     "UTILITY_TOOLS",
+    "get_integration_hitl_rules",
 ]

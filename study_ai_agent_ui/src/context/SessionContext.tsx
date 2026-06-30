@@ -16,15 +16,7 @@
  * 状态形状故意保持简单：把所有 session 元数据 + 消息快照都加载到 React state，
  * 写入防抖（每个 useEffect 触发后写一次 localStorage）。
  */
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { ThreadMessageLike } from '@assistant-ui/react';
 
@@ -39,7 +31,11 @@ import {
   type SessionStorage,
 } from '@/features/sessions';
 
-interface SessionContextValue {
+import { SessionContext } from './sessionContextObject';
+// 透传 SessionContext 给 useSession.ts 复用，避免在两个文件里分别 createContext
+export { SessionContext };
+
+export interface SessionContextValue {
   /** 当前激活的 session id（可能为 null = 还没创建） */
   activeId: string | null;
   /** 全部 session 元数据（按 updatedAt 倒序） */
@@ -62,6 +58,8 @@ interface SessionContextValue {
   setMessages: (id: string, messages: ThreadMessageLike[]) => void;
   /** 把当前 session 标记为已活跃（更新 updatedAt） */
   touch: (id: string) => void;
+  /** 标记某 session 已经发起了 run（用于 dogfood ISSUE-003 优化） */
+  markRun: (id: string) => void;
   /**
    * 从后端 checkpointer 拉取 ``threadId`` 的最新消息快照，写入当前 session。
    * 用于：
@@ -71,8 +69,6 @@ interface SessionContextValue {
    */
   loadFromBackend: (threadId: string, apiBaseUrl: string) => Promise<boolean>;
 }
-
-const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
 function genId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -189,6 +185,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         updatedAt: now,
         skillId,
         messageCount: 0,
+        hasRun: false,
       };
       return {
         ...prev,
@@ -254,6 +251,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         ...prev,
         sessions: prev.sessions.map((s) =>
           s.id === id ? { ...s, updatedAt: Date.now() } : s,
+        ),
+      };
+    });
+  }, []);
+
+  /**
+   * 标记某 session 已发起过 run（dogfood ISSUE-003 优化）：
+   *   - 切到 hasRun=true 的旧会话、本地快照为空时，才去后端 checkpointer 拉历史
+   *   - 全新创建的会话（hasRun=false）默认不去拉，避免每次新会话都 404
+   */
+  const markRun = useCallback((id: string) => {
+    setStore((prev) => {
+      if (!prev.sessions.some((s) => s.id === id)) return prev;
+      return {
+        ...prev,
+        sessions: prev.sessions.map((s) =>
+          s.id === id ? { ...s, hasRun: true } : s,
         ),
       };
     });
@@ -327,17 +341,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       rename,
       setMessages,
       touch,
+      markRun,
       loadFromBackend,
     };
-  }, [store, switchTo, createNew, remove, rename, setMessages, touch, loadFromBackend]);
+  }, [store, switchTo, createNew, remove, rename, setMessages, touch, markRun, loadFromBackend]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
-}
-
-export function useSession(): SessionContextValue {
-  const ctx = useContext(SessionContext);
-  if (!ctx) {
-    throw new Error('useSession must be used within a SessionProvider');
-  }
-  return ctx;
 }
